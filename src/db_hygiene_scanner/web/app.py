@@ -1,7 +1,19 @@
-"""Flask web application for db-hygiene-scanner interactive demo."""
+"""Flask web application for db-hygiene-scanner interactive demo.
+
+Workflow:
+  1. User provides a GitHub repo URL
+  2. Tool clones repo and scans for violations
+  3. Displays findings report
+  4. User approves AI fix generation
+  5. AI generates and reviews fixes
+  6. Commits fixes to a new branch and creates a PR
+"""
 
 import json
 import os
+import shutil
+import subprocess
+import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
@@ -15,75 +27,133 @@ app = Flask(
     static_folder=str(Path(__file__).parent / "static"),
 )
 
-# Global state for the demo pipeline
-pipeline_state = {
-    "status": "idle",
-    "step": 0,
+# Pipeline state shared across requests
+state = {
+    "phase": "idle",          # idle | cloning | scanning | scan_done | fixing | reviewing | committing | done | error
+    "repo_url": "",
+    "repo_owner": "",
+    "repo_name": "",
+    "clone_path": "",
     "scan_result": None,
-    "classifications": [],
+    "violations_raw": [],     # raw Violation objects for AI processing
     "fixes": [],
     "reviews": [],
+    "pr_url": "",
     "logs": [],
     "error": None,
 }
 
 
-def _get_mock_repo_path():
-    base = Path(__file__).parent.parent.parent.parent / "demo" / "mock_bank_repo" / "src"
-    return str(base) if base.exists() else None
-
-
-def _log(msg):
-    pipeline_state["logs"].append({
-        "time": datetime.now().strftime("%H:%M:%S"),
-        "message": msg,
+def _reset():
+    state.update({
+        "phase": "idle",
+        "repo_url": "",
+        "repo_owner": "",
+        "repo_name": "",
+        "clone_path": "",
+        "scan_result": None,
+        "violations_raw": [],
+        "fixes": [],
+        "reviews": [],
+        "pr_url": "",
+        "logs": [],
+        "error": None,
     })
 
 
-def _run_scan(repo_path):
-    """Run the scanning step."""
+def _log(msg):
+    state["logs"].append({"time": datetime.now().strftime("%H:%M:%S"), "message": msg})
+
+
+def _parse_github_url(url):
+    """Extract owner/repo from various GitHub URL formats."""
+    url = url.strip().rstrip("/").removesuffix(".git")
+    parts = url.replace("https://github.com/", "").replace("http://github.com/", "").split("/")
+    if len(parts) >= 2:
+        return parts[0], parts[1]
+    return None, None
+
+
+def _get_config():
     from db_hygiene_scanner.config import Config
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "demo-key")
+    return Config(
+        anthropic_api_key=api_key,
+        scan_target_path="/tmp",
+        ai_model_scan="claude-sonnet-4-6",
+        ai_model_fix="claude-sonnet-4-6",
+        ai_model_review="claude-sonnet-4-6",
+        rate_limit_rpm=20,
+    )
+
+
+def _build_pipeline(config, logger):
     from db_hygiene_scanner.scanner import ScannerPipeline
     from db_hygiene_scanner.scanner.detectors import (
-        LongRunningTransactionDetector,
-        ReadPreferenceDetector,
-        SelectStarDetector,
-        StringConcatSQLDetector,
-        UnbatchedTransactionDetector,
+        LongRunningTransactionDetector, ReadPreferenceDetector,
+        SelectStarDetector, StringConcatSQLDetector, UnbatchedTransactionDetector,
     )
-    from db_hygiene_scanner.utils.logging_config import get_logger
-
-    logger = get_logger("web-scanner")
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "demo-key")
-    config = Config(anthropic_api_key=api_key, scan_target_path="/tmp")
-
     pipeline = ScannerPipeline(config, logger)
     pipeline.register_detector(SelectStarDetector(config, logger))
     pipeline.register_detector(StringConcatSQLDetector(config, logger))
     pipeline.register_detector(UnbatchedTransactionDetector(config, logger))
     pipeline.register_detector(LongRunningTransactionDetector(config, logger))
     pipeline.register_detector(ReadPreferenceDetector(config, logger))
-
-    result = pipeline.scan(repo_path)
-    return result, config, logger
+    return pipeline
 
 
-def _run_pipeline(repo_path):
-    """Run the full pipeline in background."""
+# ── PHASE 1: Clone & Scan ──
+
+def _run_clone_and_scan(repo_url):
     try:
-        pipeline_state["status"] = "scanning"
-        pipeline_state["step"] = 1
-        _log("Starting scan...")
+        owner, repo_name = _parse_github_url(repo_url)
+        if not owner or not repo_name:
+            raise ValueError(f"Invalid GitHub URL: {repo_url}")
 
-        result, config, logger = _run_scan(repo_path)
+        state["repo_owner"] = owner
+        state["repo_name"] = repo_name
+
+        # Clone
+        state["phase"] = "cloning"
+        _log(f"Cloning {owner}/{repo_name}...")
+        clone_dir = tempfile.mkdtemp(prefix="dbhygiene_")
+        state["clone_path"] = clone_dir
+
+        token = os.environ.get("GITHUB_TOKEN", "")
+        if token:
+            clone_url = f"https://{token}@github.com/{owner}/{repo_name}.git"
+        else:
+            clone_url = f"https://github.com/{owner}/{repo_name}.git"
+
+        result = subprocess.run(
+            ["git", "clone", "--depth", "1", clone_url, clone_dir],
+            capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"Git clone failed: {result.stderr[:200]}")
+
+        _log(f"Repository cloned to temporary directory")
+
+        # Scan
+        state["phase"] = "scanning"
+        _log("Scanning repository for database hygiene violations...")
+
+        from db_hygiene_scanner.utils.logging_config import get_logger
+        logger = get_logger("web")
+        config = _get_config()
+        pipeline = _build_pipeline(config, logger)
+
+        scan_result = pipeline.scan(clone_dir)
 
         violations_data = []
-        for v in result.violations:
+        for v in scan_result.violations:
+            rel_path = v.file_path.replace(clone_dir + "/", "").replace(clone_dir, "")
             violations_data.append({
                 "file_path": v.file_path,
-                "file_name": v.file_path.split("/")[-1],
+                "relative_path": rel_path,
+                "file_name": Path(v.file_path).name,
                 "line_number": v.line_number,
-                "line_content": v.line_content[:120],
+                "line_content": v.line_content[:150],
                 "violation_type": v.violation_type.value,
                 "severity": v.severity.value,
                 "platform": v.platform.value,
@@ -92,192 +162,295 @@ def _run_pipeline(repo_path):
                 "confidence_score": v.confidence_score,
             })
 
-        pipeline_state["scan_result"] = {
-            "total_violations": len(result.violations),
-            "total_files": result.stats.get("total_files_scanned", 0),
-            "duration": result.stats.get("scan_duration_seconds", 0),
-            "by_type": result.stats.get("violations_by_type", {}),
-            "by_platform": result.stats.get("violations_by_platform", {}),
-            "by_severity": result.stats.get("violations_by_severity", {}),
-            "by_language": result.stats.get("violations_by_language", {}),
+        state["scan_result"] = {
+            "total_violations": len(scan_result.violations),
+            "total_files": scan_result.stats.get("total_files_scanned", 0),
+            "duration": scan_result.stats.get("scan_duration_seconds", 0),
+            "by_type": scan_result.stats.get("violations_by_type", {}),
+            "by_platform": scan_result.stats.get("violations_by_platform", {}),
+            "by_severity": scan_result.stats.get("violations_by_severity", {}),
+            "by_language": scan_result.stats.get("violations_by_language", {}),
             "violations": violations_data,
         }
-        _log(f"Scan complete: {len(result.violations)} violations in {result.stats.get('total_files_scanned', 0)} files")
+        state["violations_raw"] = scan_result.violations
 
-        # Pick 1 of each type for AI processing
-        seen = set()
-        sample = []
-        for v in result.violations:
-            if v.violation_type.value not in seen and len(sample) < 5:
-                seen.add(v.violation_type.value)
-                sample.append(v)
+        _log(f"Scan complete: {len(scan_result.violations)} violations in {scan_result.stats.get('total_files_scanned', 0)} files")
+        state["phase"] = "scan_done"
 
-        # Check if API key is available for AI steps
+    except Exception as e:
+        state["phase"] = "error"
+        state["error"] = str(e)
+        _log(f"Error: {e}")
+
+
+# ── PHASE 2: AI Fix + Review + Commit + PR ──
+
+def _run_fix_and_pr():
+    try:
+        from db_hygiene_scanner.utils.logging_config import get_logger
+        logger = get_logger("web-fixer")
+        config = _get_config()
+        clone_dir = state["clone_path"]
+        violations = state["violations_raw"]
+
         api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         if not api_key or api_key == "demo-key":
-            pipeline_state["status"] = "complete"
-            pipeline_state["step"] = 5
-            _log("No API key - skipping AI steps. Scan-only demo complete.")
+            state["phase"] = "error"
+            state["error"] = "ANTHROPIC_API_KEY required for AI fix generation"
+            _log("Error: No API key set for AI operations")
             return
 
-        # STEP 2: CLASSIFY
-        pipeline_state["status"] = "classifying"
-        pipeline_state["step"] = 2
-        _log("Starting AI classification...")
-
-        from db_hygiene_scanner.ai_engine.classifier import AIViolationClassifier
-        config.ai_model_scan = "claude-sonnet-4-6"
-        config.ai_model_fix = "claude-sonnet-4-6"
-        config.ai_model_review = "claude-sonnet-4-6"
-        classifier = AIViolationClassifier(config, logger)
-
-        for i, v in enumerate(sample):
-            _log(f"Classifying [{i+1}/{len(sample)}]: {v.violation_type.value}...")
-            classified = classifier.classify_violation(v)
-            pipeline_state["classifications"].append({
-                "type": v.violation_type.value,
-                "file": v.file_path.split("/")[-1],
-                "line": v.line_number,
-                "description": classified.description[:200],
-                "confidence": classified.confidence_score,
-                "severity": v.severity.value,
-            })
-            time.sleep(0.2)
-
-        _log(f"Classification complete: {len(sample)} violations assessed")
-
-        # STEP 3: FIX
-        pipeline_state["status"] = "fixing"
-        pipeline_state["step"] = 3
+        # STEP 1: AI Fix Generation
+        state["phase"] = "fixing"
         _log("Starting AI fix generation...")
 
         from db_hygiene_scanner.ai_engine.fix_generator import FixGenerator
         fixer = FixGenerator(config, logger)
 
         fix_objects = []
-        for i, v in enumerate(sample):
-            _log(f"Generating fix [{i+1}/{len(sample)}]: {v.violation_type.value}...")
+        for i, v in enumerate(violations):
+            _log(f"Generating fix [{i+1}/{len(violations)}]: {v.violation_type.value} in {Path(v.file_path).name}:{v.line_number}")
             fix = fixer.generate_fix(v)
             fix_objects.append(fix)
-            pipeline_state["fixes"].append({
+
+            rel_path = v.file_path.replace(clone_dir + "/", "")
+            state["fixes"].append({
                 "type": v.violation_type.value,
-                "file": v.file_path.split("/")[-1],
+                "file": Path(v.file_path).name,
+                "relative_path": rel_path,
                 "line": v.line_number,
-                "original": fix.original_code[:200],
-                "fixed": fix.fixed_code[:500] if fix.fixed_code else "",
-                "explanation": fix.explanation[:200],
+                "original": fix.original_code[:300],
+                "fixed": fix.fixed_code[:600] if fix.fixed_code else "",
+                "explanation": fix.explanation[:300],
                 "confidence": fix.confidence_score,
                 "has_fix": bool(fix.fixed_code),
             })
-            time.sleep(0.2)
 
         generated = len([f for f in fix_objects if f.fixed_code])
-        _log(f"Fix generation complete: {generated}/{len(sample)} fixes generated")
+        _log(f"Fix generation complete: {generated}/{len(violations)} fixes generated")
 
-        # STEP 4: REVIEW
-        pipeline_state["status"] = "reviewing"
-        pipeline_state["step"] = 4
-        _log("Starting security review...")
+        # STEP 2: Security Review
+        state["phase"] = "reviewing"
+        _log("Starting independent security review...")
 
         from db_hygiene_scanner.ai_engine.fix_reviewer import FixReviewer
         reviewer = FixReviewer(config, logger)
 
+        approved_fixes = []
         for i, fix in enumerate(fix_objects):
             if not fix.fixed_code:
-                pipeline_state["reviews"].append({
+                state["reviews"].append({
                     "type": fix.violation.violation_type.value,
                     "approved": False,
-                    "notes": "No fix to review",
+                    "notes": "No fix generated",
                 })
                 continue
-            _log(f"Reviewing fix [{i+1}/{len(fix_objects)}]: {fix.violation.violation_type.value}...")
+
+            _log(f"Security review [{i+1}/{len(fix_objects)}]: {fix.violation.violation_type.value}")
             reviewed = reviewer.review_fix(fix)
-            pipeline_state["reviews"].append({
+            state["reviews"].append({
                 "type": fix.violation.violation_type.value,
-                "file": fix.violation.file_path.split("/")[-1],
+                "file": Path(fix.violation.file_path).name,
                 "approved": reviewed.security_review_passed,
                 "notes": reviewed.security_review_notes[:200],
             })
-            time.sleep(0.2)
+            if reviewed.security_review_passed:
+                approved_fixes.append(reviewed)
 
-        approved = len([r for r in pipeline_state["reviews"] if r["approved"]])
-        _log(f"Security review complete: {approved} approved, {len(pipeline_state['reviews']) - approved} rejected")
+        approved_count = len(approved_fixes)
+        _log(f"Security review complete: {approved_count} approved, {len(fix_objects) - approved_count} rejected/skipped")
 
-        pipeline_state["status"] = "complete"
-        pipeline_state["step"] = 5
+        if not approved_fixes:
+            state["phase"] = "done"
+            _log("No fixes approved for commit. Pipeline complete.")
+            return
+
+        # STEP 3: Commit fixes to new branch and create PR
+        state["phase"] = "committing"
+        _log("Applying approved fixes and creating branch...")
+
+        # Apply fixes to files
+        applied = 0
+        for fix in approved_fixes:
+            try:
+                file_path = fix.violation.file_path
+                if Path(file_path).exists():
+                    content = Path(file_path).read_text()
+                    if fix.original_code in content and fix.fixed_code:
+                        updated = content.replace(fix.original_code, fix.fixed_code, 1)
+                        Path(file_path).write_text(updated)
+                        applied += 1
+                        _log(f"Applied fix to {Path(file_path).name}:{fix.violation.line_number}")
+            except Exception as e:
+                _log(f"Could not apply fix to {Path(fix.violation.file_path).name}: {e}")
+
+        if applied == 0:
+            state["phase"] = "done"
+            _log("No fixes could be applied to source files. Pipeline complete.")
+            return
+
+        # Create branch and commit
+        timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        branch_name = f"db-hygiene-fix/{timestamp}"
+
+        _run_git(clone_dir, ["checkout", "-b", branch_name])
+        _run_git(clone_dir, ["add", "-A"])
+        _run_git(clone_dir, [
+            "commit", "-m",
+            f"fix: resolve {applied} database hygiene violations\n\n"
+            f"Automated fixes generated by db-hygiene-scanner.\n"
+            f"Violations fixed: {', '.join(set(f.violation.violation_type.value for f in approved_fixes))}\n\n"
+            f"Co-Authored-By: db-hygiene-scanner <noreply@dbhygiene.dev>"
+        ])
+        _log(f"Committed {applied} fixes on branch {branch_name}")
+
+        # Push branch
+        _log("Pushing branch to GitHub...")
+        token = os.environ.get("GITHUB_TOKEN", "")
+        owner = state["repo_owner"]
+        repo_name = state["repo_name"]
+
+        if token:
+            push_url = f"https://{token}@github.com/{owner}/{repo_name}.git"
+            _run_git(clone_dir, ["remote", "set-url", "origin", push_url])
+
+        push_result = _run_git(clone_dir, ["push", "-u", "origin", branch_name])
+        if push_result.returncode != 0:
+            _log(f"Push failed: {push_result.stderr[:200]}")
+            state["phase"] = "done"
+            _log("Could not push branch. Fixes are generated locally.")
+            return
+
+        _log("Branch pushed successfully")
+
+        # Create PR
+        _log("Creating Pull Request...")
+        pr_body = _build_pr_body(approved_fixes, state["scan_result"])
+
+        pr_result = subprocess.run(
+            [
+                "gh", "pr", "create",
+                "--repo", f"{owner}/{repo_name}",
+                "--head", branch_name,
+                "--title", f"DB Hygiene: Fix {applied} database violations",
+                "--body", pr_body,
+                "--label", "db-hygiene,automated-fix",
+            ],
+            capture_output=True, text=True, timeout=60,
+            cwd=clone_dir,
+        )
+
+        if pr_result.returncode == 0:
+            pr_url = pr_result.stdout.strip()
+            state["pr_url"] = pr_url
+            _log(f"Pull Request created: {pr_url}")
+        else:
+            # Fallback: try with PyGithub
+            _log(f"gh CLI PR creation issue: {pr_result.stderr[:100]}")
+            pr_url = f"https://github.com/{owner}/{repo_name}/compare/main...{branch_name}"
+            state["pr_url"] = pr_url
+            _log(f"Branch pushed. Create PR manually: {pr_url}")
+
+        state["phase"] = "done"
         _log("Pipeline complete!")
 
     except Exception as e:
-        pipeline_state["status"] = "error"
-        pipeline_state["error"] = str(e)
-        _log(f"Error: {str(e)}")
+        state["phase"] = "error"
+        state["error"] = str(e)
+        _log(f"Error: {e}")
 
+
+def _run_git(cwd, args):
+    return subprocess.run(
+        ["git"] + args, capture_output=True, text=True, timeout=60, cwd=cwd,
+    )
+
+
+def _build_pr_body(fixes, scan_result):
+    body = "## DB Hygiene Automated Fix\n\n"
+    body += f"This PR addresses **{len(fixes)}** database hygiene violations "
+    body += "detected and fixed by the automated scanner.\n\n"
+
+    body += "### Scan Summary\n"
+    if scan_result:
+        body += f"- **{scan_result['total_violations']}** total violations found\n"
+        body += f"- **{scan_result['total_files']}** files scanned\n\n"
+
+    body += "### Fixes Applied\n\n"
+    body += "| File | Violation | Confidence |\n|------|-----------|------------|\n"
+    for fix in fixes:
+        body += f"| {Path(fix.violation.file_path).name}:{fix.violation.line_number} "
+        body += f"| {fix.violation.violation_type.value} | {fix.confidence_score:.0%} |\n"
+
+    body += "\n### Review Checklist\n"
+    body += "- [ ] Verify fixes compile and pass tests\n"
+    body += "- [ ] Review business logic preservation\n"
+    body += "- [ ] Run integration tests\n"
+    body += "\n---\n*Generated by [db-hygiene-scanner](https://github.com/shashithakurcsu/db-hygiene-scanner)*\n"
+    return body
+
+
+# ── Routes ──
 
 @app.route("/")
 def index():
     return render_template("index.html")
 
 
-@app.route("/api/start", methods=["POST"])
-def start_pipeline():
-    """Start the pipeline in a background thread."""
-    # Reset state
-    pipeline_state.update({
-        "status": "starting",
-        "step": 0,
-        "scan_result": None,
-        "classifications": [],
-        "fixes": [],
-        "reviews": [],
-        "logs": [],
-        "error": None,
-    })
+@app.route("/api/scan", methods=["POST"])
+def start_scan():
+    """Clone repo and scan. Returns immediately, poll /api/status."""
+    data = request.get_json()
+    repo_url = data.get("repo_url", "").strip()
+    if not repo_url:
+        return jsonify({"error": "repo_url is required"}), 400
 
-    repo_path = _get_mock_repo_path()
-    if not repo_path:
-        return jsonify({"error": "Mock repo not found"}), 404
+    _reset()
+    state["repo_url"] = repo_url
 
-    thread = Thread(target=_run_pipeline, args=(repo_path,), daemon=True)
+    thread = Thread(target=_run_clone_and_scan, args=(repo_url,), daemon=True)
     thread.start()
+    return jsonify({"status": "started"})
 
+
+@app.route("/api/fix", methods=["POST"])
+def start_fix():
+    """User approved fixes. Generate, review, commit, and create PR."""
+    if state["phase"] != "scan_done":
+        return jsonify({"error": "Scan must complete before fixing"}), 400
+
+    thread = Thread(target=_run_fix_and_pr, daemon=True)
+    thread.start()
     return jsonify({"status": "started"})
 
 
 @app.route("/api/status")
 def get_status():
-    """Get current pipeline status."""
-    return jsonify(pipeline_state)
-
-
-@app.route("/api/scan-only", methods=["POST"])
-def scan_only():
-    """Run scan only (no AI) and return results immediately."""
-    repo_path = _get_mock_repo_path()
-    if not repo_path:
-        return jsonify({"error": "Mock repo not found"}), 404
-
-    result, _, _ = _run_scan(repo_path)
-
-    violations = []
-    for v in result.violations:
-        violations.append({
-            "file_name": v.file_path.split("/")[-1],
-            "line_number": v.line_number,
-            "line_content": v.line_content[:120],
-            "violation_type": v.violation_type.value,
-            "severity": v.severity.value,
-            "platform": v.platform.value,
-        })
-
+    """Get current pipeline state."""
     return jsonify({
-        "total": len(violations),
-        "stats": result.stats,
-        "violations": violations,
+        "phase": state["phase"],
+        "repo_url": state["repo_url"],
+        "repo_owner": state["repo_owner"],
+        "repo_name": state["repo_name"],
+        "scan_result": state["scan_result"],
+        "fixes": state["fixes"],
+        "reviews": state["reviews"],
+        "pr_url": state["pr_url"],
+        "logs": state["logs"],
+        "error": state["error"],
     })
 
 
+@app.route("/api/reset", methods=["POST"])
+def reset():
+    """Reset pipeline to start over."""
+    if state["clone_path"] and Path(state["clone_path"]).exists():
+        shutil.rmtree(state["clone_path"], ignore_errors=True)
+    _reset()
+    return jsonify({"status": "reset"})
+
+
 def run_server(port=5001, debug=False):
-    """Run the Flask development server."""
     print(f"\n  db-hygiene-scanner Web UI")
     print(f"  Open: http://localhost:{port}\n")
     app.run(host="0.0.0.0", port=port, debug=debug)

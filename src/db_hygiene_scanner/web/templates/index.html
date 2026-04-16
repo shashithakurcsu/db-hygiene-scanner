@@ -11,20 +11,26 @@
         body { font-family: 'Inter', sans-serif; }
         .gradient-bg { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); }
         .card { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(71, 85, 105, 0.4); }
-        .glow { box-shadow: 0 0 30px rgba(59, 130, 246, 0.15); }
-        .step-active { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
-        .step-done { border-color: #22c55e; background: rgba(34, 197, 94, 0.1); }
-        .step-pending { border-color: rgba(71, 85, 105, 0.5); opacity: 0.5; }
-        .pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .fade-in { animation: fadeIn 0.5s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .log-scroll { max-height: 200px; overflow-y: auto; }
+        .glow-blue { box-shadow: 0 0 30px rgba(59, 130, 246, 0.15); }
+        .glow-green { box-shadow: 0 0 30px rgba(34, 197, 94, 0.15); }
+        .glow-red { box-shadow: 0 0 30px rgba(239, 68, 68, 0.15); }
+        .fade-in { animation: fadeIn 0.4s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .log-scroll { max-height: 220px; overflow-y: auto; scrollbar-width: thin; }
         .log-scroll::-webkit-scrollbar { width: 4px; }
         .log-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
-        .severity-critical { color: #ef4444; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); }
-        .severity-high { color: #f59e0b; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); }
-        .badge { padding: 2px 8px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .badge { padding: 2px 10px; border-radius: 9999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+        .badge-critical { color: #ef4444; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); }
+        .badge-high { color: #f59e0b; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); }
+        .badge-approved { color: #22c55e; background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); }
+        .badge-rejected { color: #ef4444; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); }
+        .step-wire { display: flex; align-items: center; gap: 0; }
+        .step-dot { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; border: 2px solid #334155; color: #64748b; transition: all 0.4s; flex-shrink: 0; }
+        .step-dot.active { border-color: #3b82f6; color: #3b82f6; background: rgba(59,130,246,0.1); box-shadow: 0 0 12px rgba(59,130,246,0.3); }
+        .step-dot.done { border-color: #22c55e; color: #22c55e; background: rgba(34,197,94,0.1); }
+        .step-line { flex: 1; height: 2px; background: #334155; transition: background 0.4s; }
+        .step-line.done { background: #22c55e; }
+        .input-glow:focus { box-shadow: 0 0 0 3px rgba(59,130,246,0.3); }
     </style>
 </head>
 <body class="gradient-bg text-gray-200 min-h-screen">
@@ -32,407 +38,391 @@
     <!-- Header -->
     <header class="border-b border-slate-700/50 px-6 py-4">
         <div class="max-w-7xl mx-auto flex items-center justify-between">
-            <div class="flex items-center gap-4">
-                <div class="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white text-lg">DB</div>
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white text-sm">DB</div>
                 <div>
-                    <h1 class="text-xl font-bold text-white">DB Hygiene Scanner</h1>
-                    <p class="text-xs text-slate-400">Automated Database Violation Detection & AI Remediation</p>
+                    <h1 class="text-lg font-bold text-white">DB Hygiene Scanner</h1>
+                    <p class="text-[11px] text-slate-400">Automated Violation Detection &amp; AI-Powered Remediation</p>
                 </div>
             </div>
-            <div class="flex items-center gap-4 text-sm text-slate-400">
-                <span>v0.1.0-alpha</span>
-                <span class="text-slate-600">|</span>
-                <span>Enterprise Banking Solution</span>
-            </div>
+            <div class="text-xs text-slate-500">v0.1.0-alpha</div>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-6 py-8">
+    <main class="max-w-7xl mx-auto px-6 py-6">
 
-        <!-- Pipeline Steps -->
-        <div class="grid grid-cols-5 gap-3 mb-8" id="pipeline-steps">
-            <div id="step-1" class="card rounded-xl p-4 text-center step-pending transition-all duration-500">
-                <div class="text-2xl mb-2">1</div>
-                <div class="font-semibold text-sm">Scan</div>
-                <div class="text-xs text-slate-400 mt-1">Detect Violations</div>
-            </div>
-            <div id="step-2" class="card rounded-xl p-4 text-center step-pending transition-all duration-500">
-                <div class="text-2xl mb-2">2</div>
-                <div class="font-semibold text-sm">Classify</div>
-                <div class="text-xs text-slate-400 mt-1">AI Risk Assessment</div>
-            </div>
-            <div id="step-3" class="card rounded-xl p-4 text-center step-pending transition-all duration-500">
-                <div class="text-2xl mb-2">3</div>
-                <div class="font-semibold text-sm">Fix</div>
-                <div class="text-xs text-slate-400 mt-1">AI Code Generation</div>
-            </div>
-            <div id="step-4" class="card rounded-xl p-4 text-center step-pending transition-all duration-500">
-                <div class="text-2xl mb-2">4</div>
-                <div class="font-semibold text-sm">Review</div>
-                <div class="text-xs text-slate-400 mt-1">Security Validation</div>
-            </div>
-            <div id="step-5" class="card rounded-xl p-4 text-center step-pending transition-all duration-500">
-                <div class="text-2xl mb-2">5</div>
-                <div class="font-semibold text-sm">Deploy</div>
-                <div class="text-xs text-slate-400 mt-1">Create PR</div>
+        <!-- Step Indicator -->
+        <div class="flex items-center justify-center mb-8 px-12">
+            <div class="step-wire w-full max-w-3xl">
+                <div class="text-center">
+                    <div class="step-dot" id="dot-1">1</div>
+                    <div class="text-[10px] text-slate-400 mt-1 w-16 -ml-3">Repo URL</div>
+                </div>
+                <div class="step-line" id="line-1"></div>
+                <div class="text-center">
+                    <div class="step-dot" id="dot-2">2</div>
+                    <div class="text-[10px] text-slate-400 mt-1 w-16 -ml-3">Scan</div>
+                </div>
+                <div class="step-line" id="line-2"></div>
+                <div class="text-center">
+                    <div class="step-dot" id="dot-3">3</div>
+                    <div class="text-[10px] text-slate-400 mt-1 w-16 -ml-3">Findings</div>
+                </div>
+                <div class="step-line" id="line-3"></div>
+                <div class="text-center">
+                    <div class="step-dot" id="dot-4">4</div>
+                    <div class="text-[10px] text-slate-400 mt-1 w-16 -ml-3">AI Fix</div>
+                </div>
+                <div class="step-line" id="line-4"></div>
+                <div class="text-center">
+                    <div class="step-dot" id="dot-5">5</div>
+                    <div class="text-[10px] text-slate-400 mt-1 w-20 -ml-5">PR Created</div>
+                </div>
             </div>
         </div>
 
-        <!-- Start Button -->
-        <div class="text-center mb-8" id="start-section">
-            <button id="btn-start" onclick="startPipeline()"
-                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-xl text-lg transition-all duration-300 shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40">
-                Run End-to-End Demo
-            </button>
-            <p class="text-sm text-slate-400 mt-3">Scans mock banking repository across C#, Java, Python, SQL</p>
+        <!-- PHASE 1: Input -->
+        <div id="phase-input" class="max-w-2xl mx-auto fade-in">
+            <div class="card rounded-2xl p-8 glow-blue text-center">
+                <h2 class="text-xl font-bold text-white mb-2">Analyze a GitHub Repository</h2>
+                <p class="text-sm text-slate-400 mb-6">Enter a GitHub repo URL to scan for database hygiene violations across C#, Java, Python, and SQL files.</p>
+                <div class="flex gap-3">
+                    <input id="repo-url" type="text" placeholder="https://github.com/owner/repo"
+                        class="flex-1 bg-slate-900/60 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none input-glow transition-all text-sm" />
+                    <button id="btn-scan" onclick="startScan()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-lg shadow-blue-600/20 text-sm whitespace-nowrap">
+                        Scan Repository
+                    </button>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-3">Supports public repos. For private repos, set GITHUB_TOKEN env var.</p>
+            </div>
         </div>
 
-        <!-- Status Bar -->
-        <div id="status-bar" class="hidden card rounded-xl p-4 mb-8 flex items-center gap-4">
-            <div id="status-spinner" class="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-            <span id="status-text" class="text-sm font-medium">Initializing...</span>
-            <div class="flex-1"></div>
-            <span id="status-elapsed" class="text-xs text-slate-400"></span>
+        <!-- Progress / Status -->
+        <div id="status-bar" class="hidden max-w-2xl mx-auto mt-4 fade-in">
+            <div class="card rounded-xl px-5 py-3 flex items-center gap-3">
+                <div id="spinner" class="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                <span id="status-text" class="text-sm text-slate-300"></span>
+                <div class="flex-1"></div>
+                <span id="status-time" class="text-[11px] text-slate-500"></span>
+            </div>
         </div>
 
-        <!-- Main Content Grid -->
-        <div class="grid grid-cols-3 gap-6">
+        <!-- PHASE 2: Scan Results / Findings Report -->
+        <div id="phase-findings" class="hidden mt-6 fade-in">
+            <div class="grid grid-cols-12 gap-5">
 
-            <!-- Left Column: Stats -->
-            <div class="space-y-6">
-                <!-- Summary Cards -->
-                <div id="summary-cards" class="hidden space-y-4 fade-in">
-                    <div class="card rounded-xl p-5 glow">
-                        <div class="text-xs text-slate-400 uppercase tracking-wide mb-1">Total Violations</div>
-                        <div id="stat-total" class="text-4xl font-bold text-white">--</div>
+                <!-- Left: Stats -->
+                <div class="col-span-4 space-y-4">
+                    <div class="card rounded-xl p-5 glow-blue">
+                        <div class="text-[11px] text-slate-400 uppercase tracking-wider mb-1">Total Violations</div>
+                        <div id="stat-total" class="text-5xl font-extrabold text-white">--</div>
+                        <div id="stat-repo" class="text-xs text-slate-500 mt-2"></div>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div class="card rounded-xl p-4">
-                            <div class="text-xs text-slate-400 mb-1">Critical</div>
-                            <div id="stat-critical" class="text-2xl font-bold text-red-400">--</div>
+                            <div class="text-[10px] text-slate-400 uppercase">Critical</div>
+                            <div id="stat-critical" class="text-2xl font-bold text-red-400">0</div>
                         </div>
                         <div class="card rounded-xl p-4">
-                            <div class="text-xs text-slate-400 mb-1">High</div>
-                            <div id="stat-high" class="text-2xl font-bold text-amber-400">--</div>
+                            <div class="text-[10px] text-slate-400 uppercase">High</div>
+                            <div id="stat-high" class="text-2xl font-bold text-amber-400">0</div>
                         </div>
                         <div class="card rounded-xl p-4">
-                            <div class="text-xs text-slate-400 mb-1">Files Scanned</div>
-                            <div id="stat-files" class="text-2xl font-bold text-blue-400">--</div>
+                            <div class="text-[10px] text-slate-400 uppercase">Files</div>
+                            <div id="stat-files" class="text-2xl font-bold text-blue-400">0</div>
                         </div>
                         <div class="card rounded-xl p-4">
-                            <div class="text-xs text-slate-400 mb-1">Scan Time</div>
-                            <div id="stat-duration" class="text-2xl font-bold text-green-400">--</div>
+                            <div class="text-[10px] text-slate-400 uppercase">Duration</div>
+                            <div id="stat-time" class="text-2xl font-bold text-green-400">--</div>
                         </div>
+                    </div>
+                    <div class="card rounded-xl p-4">
+                        <h3 class="text-xs font-semibold text-slate-300 mb-2">By Type</h3>
+                        <canvas id="chart-types" height="180"></canvas>
+                    </div>
+                    <div class="card rounded-xl p-4">
+                        <h3 class="text-xs font-semibold text-slate-300 mb-2">By Platform</h3>
+                        <canvas id="chart-platforms" height="140"></canvas>
                     </div>
                 </div>
 
-                <!-- Charts -->
-                <div id="chart-section" class="hidden card rounded-xl p-5 fade-in">
-                    <h3 class="text-sm font-semibold mb-3 text-slate-300">Violations by Type</h3>
-                    <canvas id="chart-types" height="200"></canvas>
+                <!-- Middle: Violations list -->
+                <div class="col-span-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Detected Violations</h3>
+                        <span id="violations-count" class="text-xs text-slate-500"></span>
+                    </div>
+                    <div id="violations-list" class="space-y-2 max-h-[620px] overflow-y-auto pr-1" style="scrollbar-width:thin;"></div>
                 </div>
 
-                <div id="chart-platform" class="hidden card rounded-xl p-5 fade-in">
-                    <h3 class="text-sm font-semibold mb-3 text-slate-300">By Platform</h3>
-                    <canvas id="chart-platforms" height="160"></canvas>
-                </div>
-            </div>
+                <!-- Right: Actions + Log -->
+                <div class="col-span-3 space-y-4">
+                    <!-- Approve button -->
+                    <div id="approve-section" class="hidden">
+                        <div class="card rounded-xl p-5 glow-blue border-blue-500/30 text-center">
+                            <h3 class="text-sm font-bold text-white mb-2">Findings Report Ready</h3>
+                            <p class="text-xs text-slate-400 mb-4">Review the violations above. Click below to generate AI-powered fixes, commit them, and create a PR.</p>
+                            <button id="btn-fix" onclick="startFix()"
+                                class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-3 rounded-xl transition-all shadow-lg shadow-green-600/20 text-sm">
+                                Generate AI Fixes &amp; Create PR
+                            </button>
+                        </div>
+                    </div>
 
-            <!-- Middle Column: Violations & Fixes -->
-            <div class="space-y-6">
-                <div id="violations-section" class="hidden fade-in">
-                    <h3 class="text-sm font-semibold mb-3 text-slate-300 uppercase tracking-wide">Detected Violations</h3>
-                    <div id="violations-list" class="space-y-2 max-h-[600px] overflow-y-auto pr-2" style="scrollbar-width: thin;"></div>
-                </div>
+                    <!-- Log -->
+                    <div class="card rounded-xl p-4">
+                        <h3 class="text-xs font-semibold text-slate-300 mb-2">Activity Log</h3>
+                        <div id="log-entries" class="log-scroll space-y-1 font-mono text-[11px]"></div>
+                    </div>
 
-                <div id="fixes-section" class="hidden fade-in">
-                    <h3 class="text-sm font-semibold mb-3 text-slate-300 uppercase tracking-wide">AI-Generated Fixes</h3>
-                    <div id="fixes-list" class="space-y-3"></div>
-                </div>
-            </div>
+                    <!-- Fixes -->
+                    <div id="fixes-section" class="hidden">
+                        <h3 class="text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">AI Fixes</h3>
+                        <div id="fixes-list" class="space-y-2 max-h-[250px] overflow-y-auto" style="scrollbar-width:thin;"></div>
+                    </div>
 
-            <!-- Right Column: AI Log + Reviews -->
-            <div class="space-y-6">
-                <div id="log-section" class="hidden card rounded-xl p-5 fade-in">
-                    <h3 class="text-sm font-semibold mb-3 text-slate-300">Pipeline Log</h3>
-                    <div id="log-entries" class="log-scroll space-y-1 font-mono text-xs"></div>
-                </div>
+                    <!-- Reviews -->
+                    <div id="reviews-section" class="hidden">
+                        <h3 class="text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">Security Reviews</h3>
+                        <div id="reviews-list" class="space-y-2"></div>
+                    </div>
 
-                <div id="classifications-section" class="hidden fade-in">
-                    <h3 class="text-sm font-semibold mb-3 text-slate-300 uppercase tracking-wide">AI Classifications</h3>
-                    <div id="classifications-list" class="space-y-2"></div>
-                </div>
+                    <!-- PR Result -->
+                    <div id="pr-section" class="hidden">
+                        <div class="card rounded-xl p-5 glow-green border-green-500/30 text-center fade-in">
+                            <div class="text-3xl mb-2">&#10003;</div>
+                            <h3 class="text-sm font-bold text-green-400 mb-2">Pull Request Created</h3>
+                            <a id="pr-link" href="#" target="_blank"
+                                class="text-blue-400 hover:text-blue-300 text-xs underline break-all"></a>
+                            <div class="mt-3">
+                                <button onclick="resetPipeline()" class="text-xs text-slate-400 hover:text-white underline">Scan another repo</button>
+                            </div>
+                        </div>
+                    </div>
 
-                <div id="reviews-section" class="hidden fade-in">
-                    <h3 class="text-sm font-semibold mb-3 text-slate-300 uppercase tracking-wide">Security Reviews</h3>
-                    <div id="reviews-list" class="space-y-2"></div>
-                </div>
-
-                <!-- Final Summary -->
-                <div id="final-summary" class="hidden card rounded-xl p-6 glow fade-in border-green-500/30">
-                    <h3 class="text-lg font-bold text-green-400 mb-3">Pipeline Complete</h3>
-                    <div id="final-stats" class="space-y-2 text-sm"></div>
+                    <!-- Done without PR -->
+                    <div id="done-section" class="hidden">
+                        <div class="card rounded-xl p-5 border-slate-500/30 text-center fade-in">
+                            <h3 class="text-sm font-bold text-slate-300 mb-2">Pipeline Complete</h3>
+                            <div id="done-stats" class="text-xs text-slate-400"></div>
+                            <div class="mt-3">
+                                <button onclick="resetPipeline()" class="text-xs text-slate-400 hover:text-white underline">Scan another repo</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </main>
 
-    <script>
-        let pollInterval = null;
-        let startTime = null;
-        let typesChart = null;
-        let platformChart = null;
-        let lastStep = 0;
+<script>
+let poll = null;
+let startTime = null;
+let typesChart = null;
+let platformChart = null;
 
-        function startPipeline() {
-            document.getElementById('btn-start').disabled = true;
-            document.getElementById('btn-start').textContent = 'Running...';
-            document.getElementById('btn-start').classList.add('opacity-50');
-            document.getElementById('status-bar').classList.remove('hidden');
-            document.getElementById('log-section').classList.remove('hidden');
-            startTime = Date.now();
+function startScan() {
+    const url = document.getElementById('repo-url').value.trim();
+    if (!url) return;
 
-            fetch('/api/start', { method: 'POST' })
-                .then(r => r.json())
-                .then(() => {
-                    pollInterval = setInterval(pollStatus, 800);
-                });
-        }
+    document.getElementById('btn-scan').disabled = true;
+    document.getElementById('btn-scan').innerHTML = '<span class="animate-pulse">Cloning...</span>';
+    document.getElementById('status-bar').classList.remove('hidden');
+    document.getElementById('status-text').textContent = 'Cloning repository...';
+    startTime = Date.now();
+    setStep(1, 'active');
 
-        function pollStatus() {
-            fetch('/api/status')
-                .then(r => r.json())
-                .then(data => {
-                    updateUI(data);
-                    if (data.status === 'complete' || data.status === 'error') {
-                        clearInterval(pollInterval);
-                        document.getElementById('status-spinner').classList.add('hidden');
-                    }
-                });
+    fetch('/api/scan', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({repo_url: url})
+    }).then(() => {
+        poll = setInterval(pollStatus, 700);
+    });
+}
 
-            // Update elapsed time
-            if (startTime) {
-                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-                document.getElementById('status-elapsed').textContent = `${elapsed}s elapsed`;
-            }
-        }
+function startFix() {
+    document.getElementById('btn-fix').disabled = true;
+    document.getElementById('btn-fix').innerHTML = '<span class="animate-pulse">Generating fixes...</span>';
+    setStep(4, 'active');
 
-        function updateUI(data) {
-            // Update status text
-            const statusMap = {
-                'scanning': 'Scanning repository for violations...',
-                'classifying': 'AI classifying violations...',
-                'fixing': 'AI generating code fixes...',
-                'reviewing': 'Security reviewing fixes...',
-                'complete': 'Pipeline complete!',
-                'error': 'Error: ' + (data.error || 'Unknown'),
-            };
-            document.getElementById('status-text').textContent = statusMap[data.status] || data.status;
+    fetch('/api/fix', {method: 'POST'}).then(() => {
+        // polling continues
+    });
+}
 
-            // Update pipeline steps
-            for (let i = 1; i <= 5; i++) {
-                const el = document.getElementById(`step-${i}`);
-                el.className = 'card rounded-xl p-4 text-center transition-all duration-500 ';
-                if (i < data.step) el.className += 'step-done';
-                else if (i === data.step) el.className += 'step-active';
-                else el.className += 'step-pending';
-            }
+function resetPipeline() {
+    if (poll) clearInterval(poll);
+    fetch('/api/reset', {method: 'POST'}).then(() => location.reload());
+}
 
-            // Update logs
-            const logEl = document.getElementById('log-entries');
-            logEl.innerHTML = data.logs.map(l =>
-                `<div class="text-slate-400"><span class="text-blue-400">[${l.time}]</span> ${l.message}</div>`
-            ).join('');
-            logEl.scrollTop = logEl.scrollHeight;
+function pollStatus() {
+    fetch('/api/status').then(r => r.json()).then(updateUI);
+    if (startTime) {
+        document.getElementById('status-time').textContent = ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+    }
+}
 
-            // Show scan results
-            if (data.scan_result && lastStep < 1) {
-                lastStep = 1;
-                showScanResults(data.scan_result);
-            }
+function updateUI(d) {
+    // Logs
+    const logEl = document.getElementById('log-entries');
+    logEl.innerHTML = d.logs.map(l =>
+        `<div><span class="text-blue-400">[${l.time}]</span> <span class="text-slate-400">${esc(l.message)}</span></div>`
+    ).join('');
+    logEl.scrollTop = logEl.scrollHeight;
 
-            // Show classifications
-            if (data.classifications.length > 0) {
-                showClassifications(data.classifications);
-            }
+    // Phase-based status
+    const phaseText = {
+        cloning: 'Cloning repository...',
+        scanning: 'Scanning for violations...',
+        scan_done: 'Scan complete. Review findings.',
+        fixing: 'AI generating code fixes...',
+        reviewing: 'Security reviewing fixes...',
+        committing: 'Committing fixes & creating PR...',
+        done: 'Pipeline complete.',
+        error: 'Error: ' + (d.error || ''),
+    };
+    document.getElementById('status-text').textContent = phaseText[d.phase] || d.phase;
 
-            // Show fixes
-            if (data.fixes.length > 0) {
-                showFixes(data.fixes);
-            }
+    // Steps
+    if (d.phase === 'cloning') { setStep(1, 'active'); }
+    if (d.phase === 'scanning') { setStep(1, 'done'); setStep(2, 'active'); }
+    if (d.phase === 'scan_done') { setStep(2, 'done'); setStep(3, 'done'); }
+    if (d.phase === 'fixing') { setStep(3, 'done'); setStep(4, 'active'); }
+    if (d.phase === 'reviewing') { setStep(4, 'active'); }
+    if (d.phase === 'committing') { setStep(4, 'done'); setStep(5, 'active'); }
+    if (d.phase === 'done' || d.pr_url) { setStep(5, 'done'); }
 
-            // Show reviews
-            if (data.reviews.length > 0) {
-                showReviews(data.reviews);
-            }
+    // Show findings
+    if (d.scan_result && d.phase !== 'idle') {
+        showFindings(d);
+    }
 
-            // Final summary
-            if (data.status === 'complete') {
-                showFinalSummary(data);
-            }
-        }
+    // Show approve button when scan is done
+    if (d.phase === 'scan_done') {
+        document.getElementById('approve-section').classList.remove('hidden');
+        document.getElementById('spinner').classList.add('hidden');
+    }
 
-        function showScanResults(scan) {
-            document.getElementById('summary-cards').classList.remove('hidden');
-            document.getElementById('stat-total').textContent = scan.total_violations;
-            document.getElementById('stat-critical').textContent = scan.by_severity.CRITICAL || 0;
-            document.getElementById('stat-high').textContent = scan.by_severity.HIGH || 0;
-            document.getElementById('stat-files').textContent = scan.total_files;
-            document.getElementById('stat-duration').textContent = scan.duration.toFixed(2) + 's';
+    // Fixes
+    if (d.fixes.length > 0) showFixes(d.fixes);
+    if (d.reviews.length > 0) showReviews(d.reviews);
 
-            // Violations list
-            document.getElementById('violations-section').classList.remove('hidden');
-            const listEl = document.getElementById('violations-list');
-            listEl.innerHTML = scan.violations.slice(0, 30).map(v => `
-                <div class="card rounded-lg p-3 text-xs fade-in">
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="font-semibold text-white">${v.file_name}:${v.line_number}</span>
-                        <span class="badge ${v.severity === 'CRITICAL' ? 'severity-critical' : 'severity-high'}">${v.severity}</span>
-                    </div>
-                    <div class="flex items-center gap-2 mb-1">
-                        <span class="text-blue-400 font-medium">${v.violation_type}</span>
-                        <span class="text-slate-500">|</span>
-                        <span class="text-slate-400">${v.platform}</span>
-                    </div>
-                    <div class="text-slate-500 truncate">${escapeHtml(v.line_content)}</div>
-                </div>
-            `).join('');
+    // PR
+    if (d.pr_url) {
+        document.getElementById('pr-section').classList.remove('hidden');
+        document.getElementById('pr-link').href = d.pr_url;
+        document.getElementById('pr-link').textContent = d.pr_url;
+        document.getElementById('approve-section').classList.add('hidden');
+    }
 
-            // Charts
-            document.getElementById('chart-section').classList.remove('hidden');
-            document.getElementById('chart-platform').classList.remove('hidden');
-            renderCharts(scan);
-        }
+    // Done without PR
+    if (d.phase === 'done' && !d.pr_url) {
+        clearInterval(poll);
+        document.getElementById('spinner').classList.add('hidden');
+        document.getElementById('done-section').classList.remove('hidden');
+        const gen = d.fixes.filter(f => f.has_fix).length;
+        const apr = d.reviews.filter(r => r.approved).length;
+        document.getElementById('done-stats').innerHTML =
+            `Fixes generated: ${gen}<br>Approved: ${apr}<br>` +
+            (apr === 0 ? 'No fixes were approved for commit.' : '');
+    }
 
-        function showClassifications(classifications) {
-            document.getElementById('classifications-section').classList.remove('hidden');
-            document.getElementById('classifications-list').innerHTML = classifications.map(c => `
-                <div class="card rounded-lg p-3 text-xs fade-in">
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="text-blue-400 font-semibold">${c.type}</span>
-                        <span class="text-slate-400">${c.file}:${c.line}</span>
-                    </div>
-                    <div class="text-slate-300 text-xs mt-1">${c.description}</div>
-                    <div class="mt-1 text-slate-500">Confidence: ${(c.confidence * 100).toFixed(0)}%</div>
-                </div>
-            `).join('');
-        }
+    // Complete
+    if (d.phase === 'done' || d.phase === 'error') {
+        clearInterval(poll);
+        document.getElementById('spinner').classList.add('hidden');
+    }
+}
 
-        function showFixes(fixes) {
-            document.getElementById('fixes-section').classList.remove('hidden');
-            document.getElementById('fixes-list').innerHTML = fixes.map(f => `
-                <div class="card rounded-lg p-4 text-xs fade-in">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-amber-400 font-semibold">${f.type}</span>
-                        <span class="badge ${f.has_fix ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'} border">
-                            ${f.has_fix ? 'FIX GENERATED' : 'PENDING'}
-                        </span>
-                    </div>
-                    <div class="text-slate-400 mb-2">${f.file}:${f.line}</div>
-                    ${f.has_fix ? `
-                        <div class="text-slate-300 mb-2">${f.explanation}</div>
-                        <div class="bg-slate-900/50 rounded p-2 font-mono text-xs text-green-300 overflow-x-auto">
-                            <pre>${escapeHtml(f.fixed.substring(0, 300))}</pre>
-                        </div>
-                        <div class="mt-2 text-slate-500">Confidence: ${(f.confidence * 100).toFixed(0)}%</div>
-                    ` : `<div class="text-slate-500">${f.explanation}</div>`}
-                </div>
-            `).join('');
-        }
+function showFindings(d) {
+    const s = d.scan_result;
+    document.getElementById('phase-findings').classList.remove('hidden');
+    document.getElementById('stat-total').textContent = s.total_violations;
+    document.getElementById('stat-critical').textContent = s.by_severity.CRITICAL || 0;
+    document.getElementById('stat-high').textContent = s.by_severity.HIGH || 0;
+    document.getElementById('stat-files').textContent = s.total_files;
+    document.getElementById('stat-time').textContent = s.duration.toFixed(2) + 's';
+    document.getElementById('stat-repo').textContent = d.repo_owner + '/' + d.repo_name;
+    document.getElementById('violations-count').textContent = `${s.violations.length} items`;
 
-        function showReviews(reviews) {
-            document.getElementById('reviews-section').classList.remove('hidden');
-            document.getElementById('reviews-list').innerHTML = reviews.map(r => `
-                <div class="card rounded-lg p-3 text-xs fade-in">
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="font-semibold text-white">${r.type}</span>
-                        <span class="badge ${r.approved ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'} border">
-                            ${r.approved ? 'APPROVED' : 'REJECTED'}
-                        </span>
-                    </div>
-                    <div class="text-slate-400 mt-1">${r.notes || ''}</div>
-                </div>
-            `).join('');
-        }
+    // Violations list
+    document.getElementById('violations-list').innerHTML = s.violations.slice(0, 50).map(v => `
+        <div class="card rounded-lg p-3 text-[11px] fade-in">
+            <div class="flex items-center justify-between mb-1">
+                <span class="font-semibold text-white truncate mr-2" title="${esc(v.relative_path)}">${esc(v.relative_path)}:${v.line_number}</span>
+                <span class="badge ${v.severity==='CRITICAL'?'badge-critical':'badge-high'} flex-shrink-0">${v.severity}</span>
+            </div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-blue-400 font-medium">${v.violation_type}</span>
+                <span class="text-slate-600">|</span>
+                <span class="text-slate-400">${v.platform}</span>
+                <span class="text-slate-600">|</span>
+                <span class="text-slate-400">${v.language}</span>
+            </div>
+            <div class="text-slate-500 truncate font-mono" title="${esc(v.line_content)}">${esc(v.line_content)}</div>
+        </div>
+    `).join('');
 
-        function showFinalSummary(data) {
-            document.getElementById('final-summary').classList.remove('hidden');
-            const scan = data.scan_result || {};
-            const fixes = data.fixes || [];
-            const reviews = data.reviews || [];
-            const approved = reviews.filter(r => r.approved).length;
-            const generated = fixes.filter(f => f.has_fix).length;
+    renderCharts(s);
+}
 
-            document.getElementById('final-stats').innerHTML = `
-                <div class="flex justify-between"><span class="text-slate-400">Violations Detected</span><span class="text-white font-semibold">${scan.total_violations || 0}</span></div>
-                <div class="flex justify-between"><span class="text-slate-400">Files Scanned</span><span class="text-white font-semibold">${scan.total_files || 0}</span></div>
-                <div class="flex justify-between"><span class="text-slate-400">AI Classified</span><span class="text-white font-semibold">${data.classifications.length}</span></div>
-                <div class="flex justify-between"><span class="text-slate-400">Fixes Generated</span><span class="text-white font-semibold">${generated}</span></div>
-                <div class="flex justify-between"><span class="text-slate-400">Security Approved</span><span class="text-green-400 font-semibold">${approved}</span></div>
-                <div class="flex justify-between"><span class="text-slate-400">Security Rejected</span><span class="text-red-400 font-semibold">${reviews.length - approved}</span></div>
-                <div class="border-t border-slate-600 my-2"></div>
-                <div class="text-xs text-slate-500">Ready to create GitHub PR with approved fixes</div>
-            `;
+function showFixes(fixes) {
+    document.getElementById('fixes-section').classList.remove('hidden');
+    document.getElementById('fixes-list').innerHTML = fixes.map(f => `
+        <div class="card rounded-lg p-3 text-[11px] fade-in">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-amber-400 font-semibold">${f.type}</span>
+                <span class="badge ${f.has_fix?'badge-approved':'badge-rejected'}">${f.has_fix?'FIXED':'PENDING'}</span>
+            </div>
+            <div class="text-slate-500">${esc(f.file)}:${f.line}</div>
+            ${f.has_fix ? `<div class="text-slate-300 mt-1">${esc(f.explanation.substring(0,120))}</div>` : ''}
+        </div>
+    `).join('');
+}
 
-            document.getElementById('status-text').textContent = 'Pipeline complete!';
-            document.getElementById('btn-start').textContent = 'Run Again';
-            document.getElementById('btn-start').disabled = false;
-            document.getElementById('btn-start').classList.remove('opacity-50');
-        }
+function showReviews(reviews) {
+    document.getElementById('reviews-section').classList.remove('hidden');
+    document.getElementById('reviews-list').innerHTML = reviews.map(r => `
+        <div class="card rounded-lg p-2 text-[11px] flex items-center gap-2">
+            <span class="badge ${r.approved?'badge-approved':'badge-rejected'}">${r.approved?'OK':'FAIL'}</span>
+            <span class="text-white">${r.type}</span>
+        </div>
+    `).join('');
+}
 
-        function renderCharts(scan) {
-            // Violations by type
-            const typeCtx = document.getElementById('chart-types').getContext('2d');
-            if (typesChart) typesChart.destroy();
-            typesChart = new Chart(typeCtx, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(scan.by_type),
-                    datasets: [{
-                        data: Object.values(scan.by_type),
-                        backgroundColor: ['#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#10b981'],
-                        borderRadius: 6,
-                        barThickness: 28,
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: { color: 'rgba(71,85,105,0.3)' }, ticks: { color: '#94a3b8' } },
-                        y: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
-                    }
-                }
-            });
+function renderCharts(s) {
+    const colors = ['#3b82f6','#ef4444','#f59e0b','#8b5cf6','#10b981'];
+    const ctx1 = document.getElementById('chart-types').getContext('2d');
+    if (typesChart) typesChart.destroy();
+    typesChart = new Chart(ctx1, {
+        type: 'bar', data: {
+            labels: Object.keys(s.by_type), datasets: [{data: Object.values(s.by_type), backgroundColor: colors, borderRadius: 5, barThickness: 22}]
+        }, options: { indexAxis:'y', responsive:true, plugins:{legend:{display:false}},
+            scales:{ x:{grid:{color:'rgba(71,85,105,0.2)'},ticks:{color:'#94a3b8',font:{size:10}}}, y:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:9}}} } }
+    });
 
-            // By platform
-            const platCtx = document.getElementById('chart-platforms').getContext('2d');
-            if (platformChart) platformChart.destroy();
-            platformChart = new Chart(platCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(scan.by_platform),
-                    datasets: [{
-                        data: Object.values(scan.by_platform),
-                        backgroundColor: ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981'],
-                        borderWidth: 0,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 12, font: { size: 11 } } }
-                    }
-                }
-            });
-        }
+    const ctx2 = document.getElementById('chart-platforms').getContext('2d');
+    if (platformChart) platformChart.destroy();
+    platformChart = new Chart(ctx2, {
+        type: 'doughnut', data: {
+            labels: Object.keys(s.by_platform), datasets: [{data: Object.values(s.by_platform), backgroundColor: colors, borderWidth:0}]
+        }, options: { responsive:true, plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',padding:8,font:{size:10}}}} }
+    });
+}
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-    </script>
+function setStep(n, state) {
+    const dot = document.getElementById('dot-' + n);
+    dot.className = 'step-dot ' + state;
+    if (state === 'done') dot.innerHTML = '&#10003;';
+    if (n > 1) {
+        const line = document.getElementById('line-' + (n-1));
+        if (state === 'done' || state === 'active') line.classList.add('done');
+    }
+}
+
+function esc(t) { const d=document.createElement('div'); d.textContent=t||''; return d.innerHTML; }
+</script>
 </body>
 </html>
