@@ -247,6 +247,13 @@ def _register_all_detectors(pipeline: "ScannerPipeline", config: "Config", scan_
     except ImportError:
         scan_logger.warning("detectors_not_available", msg="Detector modules not yet implemented")
 
+    # Register AST-based detector for deeper analysis
+    try:
+        from db_hygiene_scanner.scanner.detectors.ast_detector import ASTDetector
+        pipeline.register_detector(ASTDetector(config, scan_logger))
+    except ImportError:
+        scan_logger.debug("ast_detector_not_available")
+
 
 def _display_scan_results(result: "ScanResult") -> None:  # type: ignore[name-defined]
     """Display scan results in a formatted table."""

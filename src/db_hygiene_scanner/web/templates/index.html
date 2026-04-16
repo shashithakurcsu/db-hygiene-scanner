@@ -222,6 +222,9 @@ let startTime = null;
 let typesChart = null;
 let platformChart = null;
 
+// Track what we've already rendered to avoid any re-draws
+const rendered = { findings: false, fixes: 0, reviews: 0, logs: 0, phase: '', pr: false, done: false };
+
 function startScan() {
     const url = document.getElementById('repo-url').value.trim();
     if (!url) return;
@@ -238,7 +241,8 @@ function startScan() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({repo_url: url})
     }).then(() => {
-        poll = setInterval(pollStatus, 700);
+        if (poll) clearInterval(poll);
+        poll = setInterval(pollStatus, 1000);
     });
 }
 
@@ -246,14 +250,15 @@ function startFix() {
     document.getElementById('btn-fix').disabled = true;
     document.getElementById('btn-fix').innerHTML = '<span class="animate-pulse">Generating fixes...</span>';
     setStep(4, 'active');
+    rendered.phase = '';  // allow phase updates again
 
     fetch('/api/fix', {method: 'POST'}).then(() => {
-        // polling continues
+        if (!poll) poll = setInterval(pollStatus, 1000);
     });
 }
 
 function resetPipeline() {
-    if (poll) clearInterval(poll);
+    if (poll) { clearInterval(poll); poll = null; }
     fetch('/api/reset', {method: 'POST'}).then(() => location.reload());
 }
 
@@ -265,74 +270,86 @@ function pollStatus() {
 }
 
 function updateUI(d) {
-    // Logs
-    const logEl = document.getElementById('log-entries');
-    logEl.innerHTML = d.logs.map(l =>
-        `<div><span class="text-blue-400">[${l.time}]</span> <span class="text-slate-400">${esc(l.message)}</span></div>`
-    ).join('');
-    logEl.scrollTop = logEl.scrollHeight;
+    // ── Logs: append only new entries ──
+    if (d.logs.length > rendered.logs) {
+        const logEl = document.getElementById('log-entries');
+        for (let i = rendered.logs; i < d.logs.length; i++) {
+            const div = document.createElement('div');
+            div.innerHTML = `<span class="text-blue-400">[${d.logs[i].time}]</span> <span class="text-slate-400">${esc(d.logs[i].message)}</span>`;
+            logEl.appendChild(div);
+        }
+        logEl.scrollTop = logEl.scrollHeight;
+        rendered.logs = d.logs.length;
+    }
 
-    // Phase-based status
-    const phaseText = {
-        cloning: 'Cloning repository...',
-        scanning: 'Scanning for violations...',
-        scan_done: 'Scan complete. Review findings.',
-        fixing: 'AI generating code fixes...',
-        reviewing: 'Security reviewing fixes...',
-        committing: 'Committing fixes & creating PR...',
-        done: 'Pipeline complete.',
-        error: 'Error: ' + (d.error || ''),
-    };
-    document.getElementById('status-text').textContent = phaseText[d.phase] || d.phase;
+    // ── Phase: only act on change ──
+    if (d.phase !== rendered.phase) {
+        rendered.phase = d.phase;
 
-    // Steps
-    if (d.phase === 'cloning') { setStep(1, 'active'); }
-    if (d.phase === 'scanning') { setStep(1, 'done'); setStep(2, 'active'); }
-    if (d.phase === 'scan_done') { setStep(2, 'done'); setStep(3, 'done'); }
-    if (d.phase === 'fixing') { setStep(3, 'done'); setStep(4, 'active'); }
-    if (d.phase === 'reviewing') { setStep(4, 'active'); }
-    if (d.phase === 'committing') { setStep(4, 'done'); setStep(5, 'active'); }
-    if (d.phase === 'done' || d.pr_url) { setStep(5, 'done'); }
+        const phaseText = {
+            cloning: 'Cloning repository...',
+            scanning: 'Scanning for violations...',
+            scan_done: 'Scan complete. Review findings.',
+            fixing: 'AI generating code fixes...',
+            reviewing: 'Security reviewing fixes...',
+            committing: 'Committing fixes & creating PR...',
+            done: 'Pipeline complete.',
+            error: 'Error: ' + (d.error || ''),
+        };
+        document.getElementById('status-text').textContent = phaseText[d.phase] || d.phase;
 
-    // Show findings
-    if (d.scan_result && d.phase !== 'idle') {
+        if (d.phase === 'cloning')    { setStep(1, 'active'); }
+        if (d.phase === 'scanning')   { setStep(1, 'done'); setStep(2, 'active'); }
+        if (d.phase === 'scan_done')  { setStep(2, 'done'); setStep(3, 'done'); }
+        if (d.phase === 'fixing')     { setStep(3, 'done'); setStep(4, 'active'); }
+        if (d.phase === 'reviewing')  { setStep(4, 'active'); }
+        if (d.phase === 'committing') { setStep(4, 'done'); setStep(5, 'active'); }
+        if (d.phase === 'done' || d.pr_url) { setStep(5, 'done'); }
+
+        if (d.phase === 'scan_done') {
+            document.getElementById('approve-section').classList.remove('hidden');
+            document.getElementById('spinner').classList.add('hidden');
+        }
+
+        if (d.phase === 'done' || d.phase === 'error') {
+            clearInterval(poll); poll = null;
+            document.getElementById('spinner').classList.add('hidden');
+        }
+
+        if (d.phase === 'done' && !d.pr_url && !rendered.done) {
+            rendered.done = true;
+            document.getElementById('done-section').classList.remove('hidden');
+            const gen = d.fixes.filter(f => f.has_fix).length;
+            const apr = d.reviews.filter(r => r.approved).length;
+            document.getElementById('done-stats').innerHTML =
+                `Fixes generated: ${gen}<br>Approved: ${apr}<br>` +
+                (apr === 0 ? 'No fixes were approved for commit.' : '');
+        }
+    }
+
+    // ── Findings: render exactly once ──
+    if (d.scan_result && !rendered.findings) {
+        rendered.findings = true;
         showFindings(d);
     }
 
-    // Show approve button when scan is done
-    if (d.phase === 'scan_done') {
-        document.getElementById('approve-section').classList.remove('hidden');
-        document.getElementById('spinner').classList.add('hidden');
+    // ── Fixes & Reviews: only on new items ──
+    if (d.fixes.length > rendered.fixes) {
+        rendered.fixes = d.fixes.length;
+        showFixes(d.fixes);
+    }
+    if (d.reviews.length > rendered.reviews) {
+        rendered.reviews = d.reviews.length;
+        showReviews(d.reviews);
     }
 
-    // Fixes
-    if (d.fixes.length > 0) showFixes(d.fixes);
-    if (d.reviews.length > 0) showReviews(d.reviews);
-
-    // PR
-    if (d.pr_url) {
+    // ── PR: once ──
+    if (d.pr_url && !rendered.pr) {
+        rendered.pr = true;
         document.getElementById('pr-section').classList.remove('hidden');
         document.getElementById('pr-link').href = d.pr_url;
         document.getElementById('pr-link').textContent = d.pr_url;
         document.getElementById('approve-section').classList.add('hidden');
-    }
-
-    // Done without PR
-    if (d.phase === 'done' && !d.pr_url) {
-        clearInterval(poll);
-        document.getElementById('spinner').classList.add('hidden');
-        document.getElementById('done-section').classList.remove('hidden');
-        const gen = d.fixes.filter(f => f.has_fix).length;
-        const apr = d.reviews.filter(r => r.approved).length;
-        document.getElementById('done-stats').innerHTML =
-            `Fixes generated: ${gen}<br>Approved: ${apr}<br>` +
-            (apr === 0 ? 'No fixes were approved for commit.' : '');
-    }
-
-    // Complete
-    if (d.phase === 'done' || d.phase === 'error') {
-        clearInterval(poll);
-        document.getElementById('spinner').classList.add('hidden');
     }
 }
 

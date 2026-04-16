@@ -76,15 +76,20 @@ class ScannerPipeline:
         return result
 
     def _scan_file(self, file_info: FileInfo) -> list[Violation]:
-        """Scan a single file with all applicable detectors."""
+        """Scan a single file with all applicable detectors, deduplicating results."""
         content = read_file_safe(file_info.path, self.config.max_file_size_kb)
         violations: list[Violation] = []
+        seen: set[tuple[str, int]] = set()  # (violation_type, line_number)
 
         for detector in self.detectors:
             if detector.supports_language(file_info.language):
                 try:
                     detected = detector.detect(file_info.path, content)
-                    violations.extend(detected)
+                    for v in detected:
+                        key = (v.violation_type.value, v.line_number)
+                        if key not in seen:
+                            seen.add(key)
+                            violations.append(v)
                 except Exception as e:
                     self.logger.warning(
                         "detector_error",

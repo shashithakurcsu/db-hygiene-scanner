@@ -66,12 +66,30 @@ def _log(msg):
 
 
 def _parse_github_url(url):
-    """Extract owner/repo from various GitHub URL formats."""
+    """Extract owner/repo and optional subfolder from GitHub URL.
+
+    Supports:
+      https://github.com/owner/repo
+      https://github.com/owner/repo/tree/main/some/folder
+      https://github.com/owner/repo.git
+
+    Returns (owner, repo_name, subfolder_or_None).
+    """
     url = url.strip().rstrip("/").removesuffix(".git")
-    parts = url.replace("https://github.com/", "").replace("http://github.com/", "").split("/")
-    if len(parts) >= 2:
-        return parts[0], parts[1]
-    return None, None
+    path = url.replace("https://github.com/", "").replace("http://github.com/", "")
+    parts = path.split("/")
+    if len(parts) < 2:
+        return None, None, None
+
+    owner, repo_name = parts[0], parts[1]
+    subfolder = None
+
+    # Parse /tree/branch/path/to/folder
+    if len(parts) > 3 and parts[2] == "tree":
+        # parts[3] is branch name, rest is folder path
+        subfolder = "/".join(parts[4:]) if len(parts) > 4 else None
+
+    return owner, repo_name, subfolder
 
 
 def _get_config():
@@ -99,6 +117,14 @@ def _build_pipeline(config, logger):
     pipeline.register_detector(UnbatchedTransactionDetector(config, logger))
     pipeline.register_detector(LongRunningTransactionDetector(config, logger))
     pipeline.register_detector(ReadPreferenceDetector(config, logger))
+
+    # AST-based deep analysis (tree-sitter)
+    try:
+        from db_hygiene_scanner.scanner.detectors.ast_detector import ASTDetector
+        pipeline.register_detector(ASTDetector(config, logger))
+    except ImportError:
+        pass
+
     return pipeline
 
 
@@ -106,7 +132,7 @@ def _build_pipeline(config, logger):
 
 def _run_clone_and_scan(repo_url):
     try:
-        owner, repo_name = _parse_github_url(repo_url)
+        owner, repo_name, subfolder = _parse_github_url(repo_url)
         if not owner or not repo_name:
             raise ValueError(f"Invalid GitHub URL: {repo_url}")
 
@@ -115,7 +141,10 @@ def _run_clone_and_scan(repo_url):
 
         # Clone
         state["phase"] = "cloning"
-        _log(f"Cloning {owner}/{repo_name}...")
+        display_path = f"{owner}/{repo_name}"
+        if subfolder:
+            display_path += f" (folder: {subfolder})"
+        _log(f"Cloning {display_path}...")
         clone_dir = tempfile.mkdtemp(prefix="dbhygiene_")
         state["clone_path"] = clone_dir
 
@@ -134,6 +163,14 @@ def _run_clone_and_scan(repo_url):
 
         _log(f"Repository cloned to temporary directory")
 
+        # If subfolder specified, only scan that folder
+        scan_dir = clone_dir
+        if subfolder:
+            scan_dir = os.path.join(clone_dir, subfolder)
+            if not os.path.isdir(scan_dir):
+                raise ValueError(f"Subfolder not found: {subfolder}")
+            _log(f"Scanning subfolder: {subfolder}")
+
         # Scan
         state["phase"] = "scanning"
         _log("Scanning repository for database hygiene violations...")
@@ -143,7 +180,7 @@ def _run_clone_and_scan(repo_url):
         config = _get_config()
         pipeline = _build_pipeline(config, logger)
 
-        scan_result = pipeline.scan(clone_dir)
+        scan_result = pipeline.scan(scan_dir)
 
         violations_data = []
         for v in scan_result.violations:
