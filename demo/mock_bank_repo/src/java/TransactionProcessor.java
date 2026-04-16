@@ -21,8 +21,8 @@ public class TransactionProcessor {
     // VIOLATION: SQL_INJECTION + MISSING_TIMEOUT
     public Object getTransactionById(String txnId) {
         try (Connection conn = DriverManager.getConnection(oracleConnection)) {
-            String query = "SELECT * FROM Transactions WHERE transaction_id = '" + txnId + "'";
-            Statement stmt = conn.createStatement();
+            String query = "SELECT * FROM Transactions WHERE transaction_id = '" + txnId + "'";  // FIX: Use PreparedStatement with ? placeholders
+            Statement stmt = conn.createStatement();  // FIX: Use parameterized queries instead of string concatenation
             ResultSet rs = stmt.executeQuery(query);
         } catch (SQLException e) { throw new RuntimeException(e); }
         return null;
