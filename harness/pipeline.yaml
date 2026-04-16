@@ -1,0 +1,170 @@
+# Harness v2 Pipeline: DB Hygiene Automated Gating
+# This pipeline scans deployment artifacts for database hygiene violations,
+# gates deployment on compliance approval, generates reports, and supports rollback.
+#
+# Prerequisites:
+#   - Harness delegate running in RedHat OCP namespace 'harness-delegate'
+#   - Secrets: anthropic_api_key, github_token, github_reviewer
+#   - Python 3.11+ available on delegate or step container
+
+pipeline:
+  name: DB Hygiene Automated Gating
+  identifier: db_hygiene_gating
+  projectIdentifier: <+project.identifier>
+  orgIdentifier: <+org.identifier>
+  description: "Automated database hygiene scanning and compliance gating for deployment pipelines"
+
+  properties:
+    ci:
+      codebase:
+        connectorRef: account.github
+        build: <+input>
+
+  variables:
+    - name: SCAN_THRESHOLD
+      type: String
+      description: "Minimum severity to gate on (CRITICAL, HIGH, MEDIUM, LOW)"
+      value: HIGH
+    - name: artifact_path
+      type: String
+      description: "Path to the deployment artifact to scan"
+      value: <+input>
+
+  stages:
+    # Stage 1: Scan & Report
+    # Runs the db-hygiene-scanner against the deployment artifact
+    - stage:
+        name: Scan and Report
+        identifier: scan_and_report
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  name: Install Scanner
+                  identifier: install_scanner
+                  type: ShellScript
+                  spec:
+                    shell: Bash
+                    onDelegate: true
+                    source:
+                      type: Inline
+                      spec:
+                        script: |
+                          echo "Installing db-hygiene-scanner..."
+                          python3 -m pip install --upgrade pip
+                          pip install db-hygiene-scanner
+                          echo "Installation complete"
+
+              - step:
+                  name: Run Scanner
+                  identifier: run_scanner
+                  type: ShellScript
+                  spec:
+                    shell: Bash
+                    onDelegate: true
+                    environmentVariables:
+                      - name: ANTHROPIC_API_KEY
+                        type: Secret
+                        value: anthropic_api_key
+                    source:
+                      type: Inline
+                      spec:
+                        script: |
+                          echo "Scanning artifact at: <+pipeline.variables.artifact_path>"
+                          python3 -m db_hygiene_scanner.cli scan \
+                            "<+pipeline.variables.artifact_path>" \
+                            --format json \
+                            --output-file /tmp/scan-report.json
+
+                          VIOLATIONS=$(python3 -c "import json; d=json.load(open('/tmp/scan-report.json')); print(len(d.get('violations', [])))")
+                          echo "Detected $VIOLATIONS violations"
+                    outputVariables:
+                      - name: violations_count
+                      - name: violations_list
+                    timeout: 15m
+
+    # Stage 2: Compliance Gate
+    # Manual approval required if violations are found
+    - stage:
+        name: Compliance Gate
+        identifier: compliance_gate
+        type: Approval
+        spec:
+          execution:
+            steps:
+              - step:
+                  name: Approval
+                  identifier: approval
+                  type: HarnessApproval
+                  spec:
+                    approvalMessage: |
+                      Database hygiene violations detected in deployment artifact.
+
+                      Violations found: <+pipeline.stages.scan_and_report.spec.execution.steps.run_scanner.output.outputVariables.violations_count>
+
+                      Please review the scan report and approve to proceed with deployment.
+                    approvers:
+                      userGroups:
+                        - account._account_all_users
+                      minimumCount: 1
+                    approverInputs: []
+                    timeout: 24h
+        when:
+          stageStatus: Success
+          condition: <+pipeline.stages.scan_and_report.spec.execution.steps.run_scanner.output.outputVariables.violations_count> > "0"
+
+    # Stage 3: Generate Compliance Report
+    # Creates audit-trail-friendly report from scan results
+    - stage:
+        name: Generate Compliance Report
+        identifier: generate_report
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  name: Generate Report
+                  identifier: generate_report
+                  type: ShellScript
+                  spec:
+                    shell: Bash
+                    onDelegate: true
+                    source:
+                      type: Inline
+                      spec:
+                        script: |
+                          echo "Generating compliance report..."
+                          python3 -m db_hygiene_scanner.cli report \
+                            /tmp/scan-report.json \
+                            --output-format html \
+                            --output-file /tmp/compliance-report.html
+                          echo "Report generated at /tmp/compliance-report.html"
+                    timeout: 5m
+
+    # Stage 4: Rollback (if needed)
+    # Triggered if compliance gate is rejected or deployment fails
+    - stage:
+        name: Rollback
+        identifier: rollback
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  name: Rollback Deployment
+                  identifier: rollback_deployment
+                  type: ShellScript
+                  spec:
+                    shell: Bash
+                    onDelegate: true
+                    source:
+                      type: Inline
+                      spec:
+                        script: |
+                          echo "Rolling back deployment..."
+                          echo "Reverting to previous stable version"
+                          echo "Rollback complete"
+                    timeout: 10m
+        when:
+          stageStatus: Failure

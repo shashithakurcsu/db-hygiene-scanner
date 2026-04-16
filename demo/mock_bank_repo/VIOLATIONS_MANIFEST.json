@@ -1,0 +1,371 @@
+{
+  "manifest_version": "1.0",
+  "description": "Intentional database hygiene violations for testing the DB Hygiene Scanner",
+  "total_violations": 30,
+  "files_with_violations": 5,
+  "clean_files": 1,
+  "violations": [
+    {
+      "violation_id": "V001",
+      "file": "src/python/payment_service.py",
+      "violation_type": "NO_TIMEOUT",
+      "database_platform": "EDB/Yugabyte (PostgreSQL)",
+      "language": "Python",
+      "line_range": "5-6",
+      "code_snippet": "self.connection_string = connection_string",
+      "severity": "HIGH",
+      "banking_context": "Payment service connections without timeout can hang indefinitely during peak transaction periods, causing thread pool exhaustion and cascading failures across the payment processing pipeline."
+    },
+    {
+      "violation_id": "V002",
+      "file": "src/python/payment_service.py",
+      "violation_type": "NO_TIMEOUT",
+      "database_platform": "EDB/Yugabyte (PostgreSQL)",
+      "language": "Python",
+      "line_range": "10-11",
+      "code_snippet": "conn = psycopg2.connect(self.connection_string)",
+      "severity": "HIGH",
+      "banking_context": "psycopg2.connect() without connect_timeout can block indefinitely if the database node is unreachable, stalling payment queries."
+    },
+    {
+      "violation_id": "V003",
+      "file": "src/python/payment_service.py",
+      "violation_type": "SELECT_STAR",
+      "database_platform": "EDB/Yugabyte (PostgreSQL)",
+      "language": "Python",
+      "line_range": "12",
+      "code_snippet": "cursor.execute(\"SELECT * FROM payments WHERE status = 'PENDING'\")",
+      "severity": "MEDIUM",
+      "banking_context": "SELECT * on the payments table retrieves all columns including potentially large BLOB fields (e.g., payment attachments), increasing network overhead and memory consumption for a simple pending payments check."
+    },
+    {
+      "violation_id": "V004",
+      "file": "src/python/payment_service.py",
+      "violation_type": "SQL_INJECTION",
+      "database_platform": "EDB/Yugabyte (PostgreSQL)",
+      "language": "Python",
+      "line_range": "22-23",
+      "code_snippet": "query = f\"SELECT * FROM payments WHERE payment_id = {payment_id}\"",
+      "severity": "CRITICAL",
+      "banking_context": "F-string interpolation in payment lookup query allows an attacker to inject SQL and potentially extract all payment records, modify transaction amounts, or escalate privileges."
+    },
+    {
+      "violation_id": "V005",
+      "file": "src/python/payment_service.py",
+      "violation_type": "SELECT_STAR",
+      "database_platform": "EDB/Yugabyte (PostgreSQL)",
+      "language": "Python",
+      "line_range": "22-23",
+      "code_snippet": "query = f\"SELECT * FROM payments WHERE payment_id = {payment_id}\"",
+      "severity": "MEDIUM",
+      "banking_context": "SELECT * in payment-by-ID lookup fetches unnecessary columns, wasting bandwidth for a targeted single-record retrieval."
+    },
+    {
+      "violation_id": "V006",
+      "file": "src/python/payment_service.py",
+      "violation_type": "NO_TIMEOUT",
+      "database_platform": "EDB/Yugabyte (PostgreSQL)",
+      "language": "Python",
+      "line_range": "20-21",
+      "code_snippet": "conn = psycopg2.connect(self.connection_string)",
+      "severity": "HIGH",
+      "banking_context": "Connection without timeout in payment retrieval path risks blocking the calling thread indefinitely."
+    },
+    {
+      "violation_id": "V007",
+      "file": "src/python/payment_service.py",
+      "violation_type": "UNBATCHED_UPDATES",
+      "database_platform": "EDB/Yugabyte (PostgreSQL)",
+      "language": "Python",
+      "line_range": "31-36",
+      "code_snippet": "for payment in payments:\n    cursor.execute(\n        \"UPDATE payments SET status = %s WHERE payment_id = %s\",\n        ('PROCESSED', payment['id'])\n    )",
+      "severity": "HIGH",
+      "banking_context": "Processing payments one-at-a-time in a loop causes N round-trips to the database. For a batch of 10,000 payments this could take minutes instead of seconds, delaying settlement windows."
+    },
+    {
+      "violation_id": "V008",
+      "file": "src/python/payment_service.py",
+      "violation_type": "NO_TIMEOUT",
+      "database_platform": "EDB/Yugabyte (PostgreSQL)",
+      "language": "Python",
+      "line_range": "29-30",
+      "code_snippet": "conn = psycopg2.connect(self.connection_string)",
+      "severity": "HIGH",
+      "banking_context": "Batch processing connection without timeout risks hanging during high-volume payment processing windows."
+    },
+    {
+      "violation_id": "V009",
+      "file": "src/python/account_query.py",
+      "violation_type": "SELECT_STAR",
+      "database_platform": "Oracle",
+      "language": "Python",
+      "line_range": "12",
+      "code_snippet": "query = text(\"SELECT * FROM Accounts\")",
+      "severity": "MEDIUM",
+      "banking_context": "SELECT * on the Accounts table returns all columns including sensitive PII fields (SSN, date of birth) that may not be needed for the caller's use case, increasing data exposure risk."
+    },
+    {
+      "violation_id": "V010",
+      "file": "src/python/account_query.py",
+      "violation_type": "SQL_INJECTION",
+      "database_platform": "Oracle",
+      "language": "Python",
+      "line_range": "20-21",
+      "code_snippet": "query_str = \"SELECT * FROM Accounts WHERE account_number = '\" + account_number + \"'\"",
+      "severity": "CRITICAL",
+      "banking_context": "String concatenation in account lookup allows SQL injection that could expose all customer account data, including balances and personal information."
+    },
+    {
+      "violation_id": "V011",
+      "file": "src/python/account_query.py",
+      "violation_type": "SELECT_STAR",
+      "database_platform": "Oracle",
+      "language": "Python",
+      "line_range": "20-21",
+      "code_snippet": "query_str = \"SELECT * FROM Accounts WHERE account_number = '\" + account_number + \"'\"",
+      "severity": "MEDIUM",
+      "banking_context": "SELECT * combined with SQL injection compounds the risk by allowing extraction of all columns from the Accounts table."
+    },
+    {
+      "violation_id": "V012",
+      "file": "src/python/account_query.py",
+      "violation_type": "UNBATCHED_UPDATES",
+      "database_platform": "Oracle",
+      "language": "Python",
+      "line_range": "27-29",
+      "code_snippet": "for account in accounts:\n    session.add(account)\nsession.commit()",
+      "severity": "HIGH",
+      "banking_context": "Adding accounts individually via session.add() in a loop generates individual INSERT statements. Use session.add_all() or bulk_save_objects() for batch account creation."
+    },
+    {
+      "violation_id": "V013",
+      "file": "src/python/mongo_operations.py",
+      "violation_type": "NO_READ_PREFERENCE",
+      "database_platform": "MongoDB",
+      "language": "Python",
+      "line_range": "7-8",
+      "code_snippet": "self.client = MongoClient(mongo_uri)",
+      "severity": "HIGH",
+      "banking_context": "MongoClient without explicit read_preference defaults to PRIMARY, directing all reads to the primary node. For read-heavy account balance checks, this creates unnecessary load on the primary and reduces availability."
+    },
+    {
+      "violation_id": "V014",
+      "file": "src/python/mongo_operations.py",
+      "violation_type": "NO_PROJECTION",
+      "database_platform": "MongoDB",
+      "language": "Python",
+      "line_range": "13",
+      "code_snippet": "account = self.accounts.find_one({'account_id': account_id})",
+      "severity": "MEDIUM",
+      "banking_context": "find_one() without projection returns the entire account document including transaction history arrays and audit logs, when only the balance field is needed."
+    },
+    {
+      "violation_id": "V015",
+      "file": "src/python/mongo_operations.py",
+      "violation_type": "NO_READ_PREFERENCE",
+      "database_platform": "MongoDB",
+      "language": "Python",
+      "line_range": "13",
+      "code_snippet": "account = self.accounts.find_one({'account_id': account_id})",
+      "severity": "HIGH",
+      "banking_context": "Balance lookups hitting the primary node unnecessarily; SECONDARY_PREFERRED would distribute read load across replicas."
+    },
+    {
+      "violation_id": "V016",
+      "file": "src/python/mongo_operations.py",
+      "violation_type": "NO_READ_PREFERENCE",
+      "database_platform": "MongoDB",
+      "language": "Python",
+      "line_range": "18",
+      "code_snippet": "accounts = list(self.accounts.find({'customer_id': customer_id}))",
+      "severity": "HIGH",
+      "banking_context": "Customer account listing queries should use SECONDARY_PREFERRED to avoid overloading the primary replica set member during high-traffic periods."
+    },
+    {
+      "violation_id": "V017",
+      "file": "src/python/mongo_operations.py",
+      "violation_type": "NO_BULK_WRITE",
+      "database_platform": "MongoDB",
+      "language": "Python",
+      "line_range": "22-26",
+      "code_snippet": "for account in accounts:\n    try:\n        self.accounts.insert_one(account)\n    except DuplicateKeyError:\n        pass",
+      "severity": "HIGH",
+      "banking_context": "Individual insert_one() calls in a loop generate N network round-trips. For batch account onboarding of 50,000 accounts, use bulk_write() with InsertOne operations to reduce latency from minutes to seconds."
+    },
+    {
+      "violation_id": "V018",
+      "file": "src/sql/stored_procedures.sql",
+      "violation_type": "SELECT_STAR",
+      "database_platform": "MSSQL",
+      "language": "SQL",
+      "line_range": "1-8",
+      "code_snippet": "SELECT * FROM Accounts WHERE Status = @Status",
+      "severity": "MEDIUM",
+      "banking_context": "Stored procedure returns all account columns when the calling application may only need AccountId and Balance, increasing network payload for high-frequency status checks."
+    },
+    {
+      "violation_id": "V019",
+      "file": "src/sql/stored_procedures.sql",
+      "violation_type": "SQL_INJECTION",
+      "database_platform": "MSSQL",
+      "language": "SQL",
+      "line_range": "11-18",
+      "code_snippet": "SET @SQL = 'SELECT * FROM Accounts WHERE AccountNumber = ''' + @AccountNumber + ''''",
+      "severity": "CRITICAL",
+      "banking_context": "Dynamic SQL built via string concatenation in a stored procedure allows SQL injection through the @AccountNumber parameter, potentially exposing all customer accounts."
+    },
+    {
+      "violation_id": "V020",
+      "file": "src/sql/stored_procedures.sql",
+      "violation_type": "SELECT_STAR",
+      "database_platform": "MSSQL",
+      "language": "SQL",
+      "line_range": "15",
+      "code_snippet": "SET @SQL = 'SELECT * FROM Accounts WHERE AccountNumber = ''' + @AccountNumber + ''''",
+      "severity": "MEDIUM",
+      "banking_context": "SELECT * inside dynamic SQL compounds the injection risk by returning all columns."
+    },
+    {
+      "violation_id": "V021",
+      "file": "src/sql/stored_procedures.sql",
+      "violation_type": "MISSING_TRY_CATCH",
+      "database_platform": "MSSQL",
+      "language": "SQL",
+      "line_range": "21-29",
+      "code_snippet": "BEGIN TRANSACTION\nINSERT INTO PostedTransactions ...\nCOMMIT TRANSACTION",
+      "severity": "HIGH",
+      "banking_context": "Transaction posting without TRY/CATCH means a failure mid-batch leaves the transaction open, potentially locking the PostedTransactions table and blocking all other posting operations."
+    },
+    {
+      "violation_id": "V022",
+      "file": "src/sql/stored_procedures.sql",
+      "violation_type": "SELECT_STAR",
+      "database_platform": "MSSQL",
+      "language": "SQL",
+      "line_range": "25",
+      "code_snippet": "SELECT TOP (@TransactionCount) * FROM StagedTransactions",
+      "severity": "MEDIUM",
+      "banking_context": "SELECT * from StagedTransactions may pull unnecessary staging metadata columns into the PostedTransactions table."
+    },
+    {
+      "violation_id": "V023",
+      "file": "src/sql/stored_procedures.sql",
+      "violation_type": "NO_FAST_FORWARD_CURSOR",
+      "database_platform": "MSSQL",
+      "language": "SQL",
+      "line_range": "33-34",
+      "code_snippet": "DECLARE cur CURSOR FOR\n    SELECT LoanId, AppliedAmount FROM LoanApplications WHERE Status = 'PENDING'",
+      "severity": "MEDIUM",
+      "banking_context": "Cursor without FAST_FORWARD hint allocates extra resources for backward scrolling that is never used. For sequential loan batch processing, FAST_FORWARD reduces memory overhead."
+    },
+    {
+      "violation_id": "V024",
+      "file": "src/sql/stored_procedures.sql",
+      "violation_type": "CURSOR_LOOP_UPDATE",
+      "database_platform": "MSSQL",
+      "language": "SQL",
+      "line_range": "38-42",
+      "code_snippet": "WHILE @@FETCH_STATUS = 0\nBEGIN\n    UPDATE LoanApplications SET Status = 'PROCESSING' WHERE LoanId = @LoanId\n    FETCH NEXT FROM cur INTO @LoanId, @Amount\nEND",
+      "severity": "HIGH",
+      "banking_context": "Row-by-row UPDATE inside a cursor loop is extremely inefficient for loan batch processing. A single set-based UPDATE would process the entire batch in one operation."
+    },
+    {
+      "violation_id": "V025",
+      "file": "src/sql/migration_scripts.sql",
+      "violation_type": "SELECT_STAR",
+      "database_platform": "Oracle",
+      "language": "SQL (PL/SQL)",
+      "line_range": "4",
+      "code_snippet": "SELECT * FROM accounts_old;",
+      "severity": "MEDIUM",
+      "banking_context": "SELECT * in a migration cursor fetches all columns from accounts_old, including deprecated columns that may not exist in accounts_new, risking runtime errors during data migration."
+    },
+    {
+      "violation_id": "V026",
+      "file": "src/sql/migration_scripts.sql",
+      "violation_type": "UNBATCHED_INSERT",
+      "database_platform": "Oracle",
+      "language": "SQL (PL/SQL)",
+      "line_range": "13-16",
+      "code_snippet": "INSERT INTO accounts_new (account_id, customer_id, balance, status)\nVALUES (accounts(i).account_id, accounts(i).customer_id, accounts(i).balance, accounts(i).status);",
+      "severity": "HIGH",
+      "banking_context": "Individual INSERT in a PL/SQL loop generates excessive redo log entries and context switches between PL/SQL and SQL engines. Use FORALL for bulk inserts during account migration."
+    },
+    {
+      "violation_id": "V027",
+      "file": "src/sql/migration_scripts.sql",
+      "violation_type": "COMMIT_IN_LOOP",
+      "database_platform": "Oracle",
+      "language": "SQL (PL/SQL)",
+      "line_range": "17",
+      "code_snippet": "IF i MOD 100 = 0 THEN COMMIT; END IF;",
+      "severity": "MEDIUM",
+      "banking_context": "Committing every 100 rows during migration creates inconsistent state if the process fails mid-way. Partial commits leave accounts_new in an incomplete state requiring manual reconciliation."
+    },
+    {
+      "violation_id": "V028",
+      "file": "src/sql/migration_scripts.sql",
+      "violation_type": "SQL_INJECTION",
+      "database_platform": "Oracle",
+      "language": "SQL (PL/SQL)",
+      "line_range": "26",
+      "code_snippet": "v_sql := 'INSERT INTO transactions_new SELECT * FROM ' || p_source_table;",
+      "severity": "CRITICAL",
+      "banking_context": "EXECUTE IMMEDIATE with concatenated table name allows injection of arbitrary SQL. An attacker could pass a crafted table name to exfiltrate or modify transaction data."
+    },
+    {
+      "violation_id": "V029",
+      "file": "src/sql/migration_scripts.sql",
+      "violation_type": "SELECT_STAR",
+      "database_platform": "Oracle",
+      "language": "SQL (PL/SQL)",
+      "line_range": "26",
+      "code_snippet": "v_sql := 'INSERT INTO transactions_new SELECT * FROM ' || p_source_table;",
+      "severity": "MEDIUM",
+      "banking_context": "SELECT * in dynamic migration SQL assumes source and target schemas match exactly, which is fragile during schema evolution."
+    },
+    {
+      "violation_id": "V030",
+      "file": "src/sql/migration_scripts.sql",
+      "violation_type": "DYNAMIC_SQL_WITHOUT_BIND_VARIABLES",
+      "database_platform": "Oracle",
+      "language": "SQL (PL/SQL)",
+      "line_range": "25-28",
+      "code_snippet": "EXECUTE IMMEDIATE v_sql;",
+      "severity": "HIGH",
+      "banking_context": "Dynamic SQL without bind variables prevents Oracle from caching the execution plan, causing hard parses on every invocation and degrading performance during large-scale transaction migration."
+    }
+  ],
+  "clean_files_for_false_positive_testing": [
+    {
+      "file": "src/sql/ddl_scripts.sql",
+      "description": "Clean DDL file with CREATE TABLE, CREATE INDEX, and FOREIGN KEY statements. The scanner should NOT flag any violations in this file."
+    }
+  ],
+  "violation_type_summary": {
+    "SELECT_STAR": 10,
+    "SQL_INJECTION": 4,
+    "UNBATCHED_UPDATES": 2,
+    "UNBATCHED_INSERT": 1,
+    "NO_TIMEOUT": 4,
+    "NO_READ_PREFERENCE": 4,
+    "NO_PROJECTION": 1,
+    "NO_BULK_WRITE": 1,
+    "MISSING_TRY_CATCH": 1,
+    "NO_FAST_FORWARD_CURSOR": 1,
+    "CURSOR_LOOP_UPDATE": 1,
+    "COMMIT_IN_LOOP": 1,
+    "DYNAMIC_SQL_WITHOUT_BIND_VARIABLES": 1
+  },
+  "severity_summary": {
+    "CRITICAL": 4,
+    "HIGH": 14,
+    "MEDIUM": 12
+  },
+  "platform_summary": {
+    "EDB/Yugabyte (PostgreSQL)": 8,
+    "Oracle": 7,
+    "MongoDB": 5,
+    "MSSQL": 10
+  }
+}

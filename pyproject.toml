@@ -1,0 +1,95 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "db-hygiene-scanner"
+version = "0.1.0-alpha"
+description = "Automated database hygiene violation detection and AI-powered remediation for banking systems"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [
+    {name = "DB Hygiene Scanner Team"},
+]
+keywords = ["database", "hygiene", "security", "banking", "scanner"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Database",
+]
+
+dependencies = [
+    "anthropic>=0.39.0",
+    "click>=8.1.7",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "tree-sitter>=0.21.0",
+    "tree-sitter-c-sharp>=0.21.0",
+    "tree-sitter-java>=0.21.0",
+    "tree-sitter-python>=0.21.0",
+    "GitPython>=3.1.40",
+    "PyGithub>=2.1.1",
+    "jinja2>=3.1.2",
+    "python-dotenv>=1.0.0",
+    "structlog>=23.2.0",
+    "sarif-om>=1.0.4",
+    "rich>=13.7.0",
+    "pyyaml>=6.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.3",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-xdist>=3.5.0",
+    "ruff>=0.1.8",
+    "mypy>=1.7.0",
+    "bandit>=1.7.6",
+    "black>=23.12.0",
+    "responses>=0.24.0",
+]
+
+[project.scripts]
+db-hygiene-scanner = "db_hygiene_scanner.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.isort]
+known-first-party = ["db_hygiene_scanner"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "e2e: End-to-end tests",
+    "requires_api: Tests that require Anthropic API key",
+    "requires_github: Tests that require GitHub token",
+]
+asyncio_mode = "auto"
+
+[tool.bandit]
+exclude_dirs = ["tests"]

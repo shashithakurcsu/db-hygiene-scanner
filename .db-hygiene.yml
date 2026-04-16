@@ -1,0 +1,75 @@
+# db-hygiene-scanner Configuration
+# This file configures scan behavior, reviewer assignment, and thresholds.
+
+# Scan configuration
+scan:
+  # Paths to scan (relative to repository root)
+  paths:
+    - "src/"
+    - "app/"
+
+  # File extensions to include
+  extensions:
+    - ".cs"
+    - ".java"
+    - ".py"
+    - ".sql"
+    - ".xml"
+
+  # Patterns to ignore (glob syntax)
+  ignore_patterns:
+    - "**/test/**"
+    - "**/tests/**"
+    - "**/*.test.*"
+    - "**/node_modules/**"
+    - "**/bin/**"
+    - "**/obj/**"
+
+# Database platforms to check
+platforms:
+  - MSSQL
+  - ORACLE
+  - MONGODB
+  - EDB_YUGABYTE
+
+# Severity threshold for failing the pipeline
+# Violations at or above this level will trigger a gate
+severity_threshold: HIGH
+
+# Auto-fix configuration
+auto_fix:
+  enabled: false
+  # Only auto-fix violations with confidence above this threshold
+  confidence_threshold: 0.85
+  # Create PRs as draft if confidence is below this level
+  draft_threshold: 0.90
+
+# Reviewer assignment
+reviewers:
+  # Default reviewer for all files
+  default: "security-team"
+
+  # File pattern-based assignment (glob patterns)
+  by_file_pattern:
+    "src/migrations/**/*.sql": "dba-team"
+    "src/services/**/*.java": "backend-lead"
+    "src/**/*.cs": "dotnet-lead"
+    "src/**/*.py": "python-lead"
+
+  # Violation type-based assignment
+  by_violation_type:
+    SELECT_STAR: "dba-team"
+    STRING_CONCAT_SQL: "security-team"
+    UNBATCHED_TXN: "performance-team"
+    LONG_RUNNING_TXN: "dba-team"
+    READ_PREFERENCE: "mongodb-team"
+
+# Reporting
+reporting:
+  # Output formats to generate
+  formats:
+    - json
+    - html
+
+  # Include correct examples in report for reference
+  include_correct_examples: true

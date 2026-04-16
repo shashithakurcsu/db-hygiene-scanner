@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="LoanServicingMapper">
+    <!-- VIOLATION: SELECT_STAR + SQL_INJECTION (${} instead of #{}) -->
+    <select id="selectByLoanId" parameterType="String" resultType="Object">
+        SELECT * FROM LoanServices WHERE loan_id = ${loanId}
+    </select>
+
+    <!-- Correct example -->
+    <select id="selectByLoanIdCorrect" parameterType="String" resultType="Object">
+        SELECT service_id, loan_id, servicer_name, status FROM LoanServices WHERE loan_id = #{loanId}
+    </select>
+
+    <!-- VIOLATION: SQL_INJECTION (${} instead of #{}) -->
+    <insert id="insertRecord" parameterType="Object">
+        INSERT INTO LoanServices (service_id, loan_id, servicer_name, status)
+        VALUES (#{serviceId}, ${loanId}, #{servicerName}, #{status})
+    </insert>
+</mapper>
