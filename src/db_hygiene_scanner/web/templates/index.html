@@ -6,208 +6,214 @@
     <title>DB Hygiene Scanner</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        wf: {
+                            red: '#D71E28', darkred: '#9B1B20', deepred: '#6B0F12',
+                            gold: '#FFCD11', darkgold: '#D4A800',
+                            green: '#1B7D3A', darkgreen: '#155E2C',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .gradient-bg { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); }
-        .card { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(71, 85, 105, 0.4); }
-        .glow-blue { box-shadow: 0 0 30px rgba(59, 130, 246, 0.15); }
-        .glow-green { box-shadow: 0 0 30px rgba(34, 197, 94, 0.15); }
-        .glow-red { box-shadow: 0 0 30px rgba(239, 68, 68, 0.15); }
+        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700;800&display=swap');
+        * { font-family: 'Source Sans 3', 'Helvetica Neue', Arial, sans-serif; }
+        .card { background: #fff; border: 1px solid #E0E0E0; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .fade-in { animation: fadeIn 0.4s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .log-scroll { max-height: 220px; overflow-y: auto; scrollbar-width: thin; }
-        .log-scroll::-webkit-scrollbar { width: 4px; }
-        .log-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
-        .badge { padding: 2px 10px; border-radius: 9999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-        .badge-critical { color: #ef4444; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); }
-        .badge-high { color: #f59e0b; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); }
-        .badge-approved { color: #22c55e; background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); }
-        .badge-rejected { color: #ef4444; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); }
-        .step-wire { display: flex; align-items: center; gap: 0; }
-        .step-dot { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; border: 2px solid #334155; color: #64748b; transition: all 0.4s; flex-shrink: 0; }
-        .step-dot.active { border-color: #3b82f6; color: #3b82f6; background: rgba(59,130,246,0.1); box-shadow: 0 0 12px rgba(59,130,246,0.3); }
-        .step-dot.done { border-color: #22c55e; color: #22c55e; background: rgba(34,197,94,0.1); }
-        .step-line { flex: 1; height: 2px; background: #334155; transition: background 0.4s; }
-        .step-line.done { background: #22c55e; }
-        .input-glow:focus { box-shadow: 0 0 0 3px rgba(59,130,246,0.3); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .log-scroll { max-height: 280px; overflow-y: auto; scrollbar-width: thin; }
+        .log-scroll::-webkit-scrollbar { width: 5px; }
+        .log-scroll::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+        .badge { padding: 3px 12px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+        .badge-critical { color: #fff; background: #D71E28; }
+        .badge-high { color: #1a1a1a; background: #FFCD11; }
+        .badge-approved { color: #fff; background: #1B7D3A; }
+        .badge-rejected { color: #fff; background: #D71E28; }
+        .step-wire { display: flex; align-items: center; }
+        .step-dot { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1rem; border: 3px solid #D4D4D4; color: #A3A3A3; transition: all 0.4s; flex-shrink: 0; background: #fff; }
+        .step-dot.active { border-color: #D71E28; color: #D71E28; background: #FFF0F0; box-shadow: 0 0 12px rgba(215,30,40,0.25); }
+        .step-dot.done { border-color: #1B7D3A; color: #fff; background: #1B7D3A; }
+        .step-line { flex: 1; height: 3px; background: #E5E5E5; transition: background 0.4s; }
+        .step-line.done { background: #1B7D3A; }
+        .step-label { font-size: 0.75rem; font-weight: 600; color: #737373; margin-top: 6px; }
+        .stat-num { font-size: 3rem; font-weight: 800; line-height: 1; }
+        .violation-row { border-left: 4px solid transparent; transition: border-color 0.2s; }
+        .violation-row:hover { border-left-color: #D71E28; background: #FFFBFB; }
     </style>
 </head>
-<body class="gradient-bg text-gray-200 min-h-screen">
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
 
-    <!-- Header -->
-    <header class="border-b border-slate-700/50 px-6 py-4">
-        <div class="max-w-7xl mx-auto flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white text-sm">DB</div>
+    <!-- Header: WF Red -->
+    <header class="bg-wf-red">
+        <div class="max-w-[1600px] mx-auto px-8 flex items-center justify-between h-16">
+            <div class="flex items-center gap-4">
+                <svg class="h-8 w-8 text-wf-gold" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                 <div>
-                    <h1 class="text-lg font-bold text-white">DB Hygiene Scanner</h1>
-                    <p class="text-[11px] text-slate-400">Automated Violation Detection &amp; AI-Powered Remediation</p>
+                    <h1 class="text-[20px] font-extrabold text-white tracking-wide leading-tight">DB Hygiene Scanner</h1>
+                    <p class="text-[12px] text-red-200 font-medium">Automated Database Violation Detection & AI Remediation</p>
                 </div>
             </div>
-            <div class="text-xs text-slate-500">v0.1.0-alpha</div>
+            <div class="flex items-center gap-5">
+                <span class="text-[12px] text-red-100 font-medium">Enterprise Banking Compliance</span>
+                <span class="text-[11px] text-red-200/70 border border-red-300/30 rounded px-2.5 py-0.5">v0.1.0</span>
+            </div>
         </div>
+        <div class="h-1 bg-wf-gold"></div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-6 py-6">
+    <main class="flex-1 max-w-[1600px] w-full mx-auto px-8 py-6">
 
         <!-- Step Indicator -->
-        <div class="flex items-center justify-center mb-8 px-12">
-            <div class="step-wire w-full max-w-3xl">
-                <div class="text-center">
-                    <div class="step-dot" id="dot-1">1</div>
-                    <div class="text-[10px] text-slate-400 mt-1 w-16 -ml-3">Repo URL</div>
-                </div>
+        <div class="flex justify-center mb-8">
+            <div class="step-wire w-full max-w-4xl">
+                <div class="text-center"><div class="step-dot" id="dot-1">1</div><div class="step-label">Repository</div></div>
                 <div class="step-line" id="line-1"></div>
-                <div class="text-center">
-                    <div class="step-dot" id="dot-2">2</div>
-                    <div class="text-[10px] text-slate-400 mt-1 w-16 -ml-3">Scan</div>
-                </div>
+                <div class="text-center"><div class="step-dot" id="dot-2">2</div><div class="step-label">Scan</div></div>
                 <div class="step-line" id="line-2"></div>
-                <div class="text-center">
-                    <div class="step-dot" id="dot-3">3</div>
-                    <div class="text-[10px] text-slate-400 mt-1 w-16 -ml-3">Findings</div>
-                </div>
+                <div class="text-center"><div class="step-dot" id="dot-3">3</div><div class="step-label">Findings</div></div>
                 <div class="step-line" id="line-3"></div>
-                <div class="text-center">
-                    <div class="step-dot" id="dot-4">4</div>
-                    <div class="text-[10px] text-slate-400 mt-1 w-16 -ml-3">AI Fix</div>
-                </div>
+                <div class="text-center"><div class="step-dot" id="dot-4">4</div><div class="step-label">AI Fix</div></div>
                 <div class="step-line" id="line-4"></div>
-                <div class="text-center">
-                    <div class="step-dot" id="dot-5">5</div>
-                    <div class="text-[10px] text-slate-400 mt-1 w-20 -ml-5">PR Created</div>
-                </div>
+                <div class="text-center"><div class="step-dot" id="dot-5">5</div><div class="step-label">Pull Request</div></div>
             </div>
         </div>
 
         <!-- PHASE 1: Input -->
-        <div id="phase-input" class="max-w-2xl mx-auto fade-in">
-            <div class="card rounded-2xl p-8 glow-blue text-center">
-                <h2 class="text-xl font-bold text-white mb-2">Analyze a GitHub Repository</h2>
-                <p class="text-sm text-slate-400 mb-6">Enter a GitHub repo URL to scan for database hygiene violations across C#, Java, Python, and SQL files.</p>
-                <div class="flex gap-3">
-                    <input id="repo-url" type="text" placeholder="https://github.com/owner/repo"
-                        class="flex-1 bg-slate-900/60 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none input-glow transition-all text-sm" />
+        <div id="phase-input" class="max-w-3xl mx-auto fade-in">
+            <div class="card p-10 text-center">
+                <div class="w-16 h-16 rounded-full bg-wf-red/10 flex items-center justify-center mx-auto mb-5">
+                    <svg class="w-8 h-8 text-wf-red" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                </div>
+                <h2 class="text-2xl font-extrabold text-gray-900 mb-2">Analyze a GitHub Repository</h2>
+                <p class="text-base text-gray-500 mb-8 max-w-xl mx-auto">Enter a GitHub repository URL to scan for database hygiene violations across C#, Java, Python, and SQL files. Supports subfolder URLs.</p>
+                <div class="flex gap-4 max-w-2xl mx-auto">
+                    <input id="repo-url" type="text" placeholder="https://github.com/owner/repo/tree/main/src"
+                        class="flex-1 border-2 border-gray-200 rounded-lg px-5 py-3.5 text-gray-800 placeholder-gray-400 focus:outline-none focus:border-wf-red focus:ring-3 focus:ring-wf-red/15 transition-all text-[15px]" />
                     <button id="btn-scan" onclick="startScan()"
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-lg shadow-blue-600/20 text-sm whitespace-nowrap">
+                        class="bg-wf-red hover:bg-wf-darkred text-white font-bold px-8 py-3.5 rounded-lg transition-all text-[15px] whitespace-nowrap shadow-md shadow-red-200">
                         Scan Repository
                     </button>
                 </div>
-                <p class="text-[11px] text-slate-500 mt-3">Supports public repos. For private repos, set GITHUB_TOKEN env var.</p>
             </div>
         </div>
 
-        <!-- Progress / Status -->
-        <div id="status-bar" class="hidden max-w-2xl mx-auto mt-4 fade-in">
-            <div class="card rounded-xl px-5 py-3 flex items-center gap-3">
-                <div id="spinner" class="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-                <span id="status-text" class="text-sm text-slate-300"></span>
+        <!-- Status Bar -->
+        <div id="status-bar" class="hidden max-w-3xl mx-auto mt-5 fade-in">
+            <div class="card px-6 py-4 flex items-center gap-4">
+                <div id="spinner" class="w-5 h-5 border-[3px] border-wf-red border-t-transparent rounded-full animate-spin"></div>
+                <span id="status-text" class="text-[15px] font-medium text-gray-600"></span>
                 <div class="flex-1"></div>
-                <span id="status-time" class="text-[11px] text-slate-500"></span>
+                <span id="status-time" class="text-sm text-gray-400"></span>
             </div>
         </div>
 
-        <!-- PHASE 2: Scan Results / Findings Report -->
+        <!-- PHASE 2: Findings -->
         <div id="phase-findings" class="hidden mt-6 fade-in">
-            <div class="grid grid-cols-12 gap-5">
+            <div class="grid grid-cols-12 gap-6">
 
-                <!-- Left: Stats -->
-                <div class="col-span-4 space-y-4">
-                    <div class="card rounded-xl p-5 glow-blue">
-                        <div class="text-[11px] text-slate-400 uppercase tracking-wider mb-1">Total Violations</div>
-                        <div id="stat-total" class="text-5xl font-extrabold text-white">--</div>
-                        <div id="stat-repo" class="text-xs text-slate-500 mt-2"></div>
+                <!-- Left: Stats & Charts -->
+                <div class="col-span-3 space-y-5">
+                    <div class="card p-6 border-l-[5px] border-l-wf-red">
+                        <div class="text-xs text-gray-400 uppercase tracking-widest font-bold mb-2">Total Violations</div>
+                        <div id="stat-total" class="stat-num text-gray-900">--</div>
+                        <div id="stat-repo" class="text-sm text-gray-400 mt-3 font-medium"></div>
                     </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="card rounded-xl p-4">
-                            <div class="text-[10px] text-slate-400 uppercase">Critical</div>
-                            <div id="stat-critical" class="text-2xl font-bold text-red-400">0</div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="card p-5 border-l-[5px] border-l-wf-red">
+                            <div class="text-[11px] text-gray-400 uppercase font-bold">Critical</div>
+                            <div id="stat-critical" class="text-3xl font-extrabold text-wf-red mt-1">0</div>
                         </div>
-                        <div class="card rounded-xl p-4">
-                            <div class="text-[10px] text-slate-400 uppercase">High</div>
-                            <div id="stat-high" class="text-2xl font-bold text-amber-400">0</div>
+                        <div class="card p-5 border-l-[5px] border-l-wf-gold">
+                            <div class="text-[11px] text-gray-400 uppercase font-bold">High</div>
+                            <div id="stat-high" class="text-3xl font-extrabold text-yellow-600 mt-1">0</div>
                         </div>
-                        <div class="card rounded-xl p-4">
-                            <div class="text-[10px] text-slate-400 uppercase">Files</div>
-                            <div id="stat-files" class="text-2xl font-bold text-blue-400">0</div>
+                        <div class="card p-5">
+                            <div class="text-[11px] text-gray-400 uppercase font-bold">Files</div>
+                            <div id="stat-files" class="text-3xl font-extrabold text-gray-800 mt-1">0</div>
                         </div>
-                        <div class="card rounded-xl p-4">
-                            <div class="text-[10px] text-slate-400 uppercase">Duration</div>
-                            <div id="stat-time" class="text-2xl font-bold text-green-400">--</div>
+                        <div class="card p-5">
+                            <div class="text-[11px] text-gray-400 uppercase font-bold">Duration</div>
+                            <div id="stat-time" class="text-3xl font-extrabold text-gray-800 mt-1">--</div>
                         </div>
                     </div>
-                    <div class="card rounded-xl p-4">
-                        <h3 class="text-xs font-semibold text-slate-300 mb-2">By Type</h3>
-                        <canvas id="chart-types" height="180"></canvas>
+                    <div class="card p-5">
+                        <h3 class="text-sm font-bold text-gray-600 mb-4 uppercase tracking-wide">Violations by Type</h3>
+                        <canvas id="chart-types" height="200"></canvas>
                     </div>
-                    <div class="card rounded-xl p-4">
-                        <h3 class="text-xs font-semibold text-slate-300 mb-2">By Platform</h3>
-                        <canvas id="chart-platforms" height="140"></canvas>
+                    <div class="card p-5">
+                        <h3 class="text-sm font-bold text-gray-600 mb-4 uppercase tracking-wide">By Platform</h3>
+                        <canvas id="chart-platforms" height="160"></canvas>
                     </div>
                 </div>
 
-                <!-- Middle: Violations list -->
+                <!-- Middle: Violations -->
                 <div class="col-span-5">
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Detected Violations</h3>
-                        <span id="violations-count" class="text-xs text-slate-500"></span>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-bold text-gray-600 uppercase tracking-wider">Detected Violations</h3>
+                        <span id="violations-count" class="text-sm text-gray-400 font-medium"></span>
                     </div>
-                    <div id="violations-list" class="space-y-2 max-h-[620px] overflow-y-auto pr-1" style="scrollbar-width:thin;"></div>
+                    <div id="violations-list" class="space-y-2.5 max-h-[calc(100vh-220px)] overflow-y-auto pr-2" style="scrollbar-width:thin;"></div>
                 </div>
 
-                <!-- Right: Actions + Log -->
-                <div class="col-span-3 space-y-4">
-                    <!-- Approve button -->
+                <!-- Right: Actions, Log, Fixes -->
+                <div class="col-span-4 space-y-5">
                     <div id="approve-section" class="hidden">
-                        <div class="card rounded-xl p-5 glow-blue border-blue-500/30 text-center">
-                            <h3 class="text-sm font-bold text-white mb-2">Findings Report Ready</h3>
-                            <p class="text-xs text-slate-400 mb-4">Review the violations above. Click below to generate AI-powered fixes, commit them, and create a PR.</p>
+                        <div class="card p-6 text-center border-2 border-wf-red/40">
+                            <div class="w-12 h-12 rounded-full bg-wf-green/10 flex items-center justify-center mx-auto mb-4">
+                                <svg class="w-6 h-6 text-wf-green" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            </div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-2">Findings Report Ready</h3>
+                            <p class="text-sm text-gray-500 mb-5">Review the violations. Click below to auto-generate fixes, commit to a feature branch, and create a Pull Request.</p>
                             <button id="btn-fix" onclick="startFix()"
-                                class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-3 rounded-xl transition-all shadow-lg shadow-green-600/20 text-sm">
+                                class="w-full bg-wf-green hover:bg-wf-darkgreen text-white font-bold px-6 py-4 rounded-lg transition-all text-[15px] shadow-md shadow-green-200">
                                 Generate AI Fixes &amp; Create PR
                             </button>
                         </div>
                     </div>
 
-                    <!-- Log -->
-                    <div class="card rounded-xl p-4">
-                        <h3 class="text-xs font-semibold text-slate-300 mb-2">Activity Log</h3>
-                        <div id="log-entries" class="log-scroll space-y-1 font-mono text-[11px]"></div>
+                    <div class="card p-5">
+                        <h3 class="text-sm font-bold text-gray-600 mb-3 uppercase tracking-wide">Activity Log</h3>
+                        <div id="log-entries" class="log-scroll space-y-1.5 font-mono text-[12px] leading-relaxed"></div>
                     </div>
 
-                    <!-- Fixes -->
                     <div id="fixes-section" class="hidden">
-                        <h3 class="text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">AI Fixes</h3>
-                        <div id="fixes-list" class="space-y-2 max-h-[250px] overflow-y-auto" style="scrollbar-width:thin;"></div>
+                        <h3 class="text-sm font-bold text-gray-600 mb-3 uppercase tracking-wider">AI Generated Fixes</h3>
+                        <div id="fixes-list" class="space-y-2.5 max-h-[300px] overflow-y-auto" style="scrollbar-width:thin;"></div>
                     </div>
 
-                    <!-- Reviews -->
                     <div id="reviews-section" class="hidden">
-                        <h3 class="text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">Security Reviews</h3>
+                        <h3 class="text-sm font-bold text-gray-600 mb-3 uppercase tracking-wider">Validation Results</h3>
                         <div id="reviews-list" class="space-y-2"></div>
                     </div>
 
-                    <!-- PR Result -->
                     <div id="pr-section" class="hidden">
-                        <div class="card rounded-xl p-5 glow-green border-green-500/30 text-center fade-in">
-                            <div class="text-3xl mb-2">&#10003;</div>
-                            <h3 class="text-sm font-bold text-green-400 mb-2">Pull Request Created</h3>
-                            <a id="pr-link" href="#" target="_blank"
-                                class="text-blue-400 hover:text-blue-300 text-xs underline break-all"></a>
-                            <div class="mt-3">
-                                <button onclick="resetPipeline()" class="text-xs text-slate-400 hover:text-white underline">Scan another repo</button>
+                        <div class="card p-8 text-center border-2 border-wf-green/40 fade-in">
+                            <div class="w-16 h-16 rounded-full bg-wf-green/10 flex items-center justify-center mx-auto mb-4">
+                                <svg class="w-8 h-8 text-wf-green" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                            </div>
+                            <h3 class="text-xl font-bold text-wf-green mb-3">Pull Request Created</h3>
+                            <p class="text-sm text-gray-500 mb-4">Fixes committed to feature branch and PR opened for review.</p>
+                            <a id="pr-link" href="#" target="_blank" class="inline-block bg-wf-red hover:bg-wf-darkred text-white font-bold px-6 py-3 rounded-lg text-sm transition-all shadow-md">
+                                View Pull Request &rarr;
+                            </a>
+                            <div class="mt-5">
+                                <button onclick="resetPipeline()" class="text-sm text-gray-400 hover:text-gray-700 underline">Scan another repository</button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Done without PR -->
                     <div id="done-section" class="hidden">
-                        <div class="card rounded-xl p-5 border-slate-500/30 text-center fade-in">
-                            <h3 class="text-sm font-bold text-slate-300 mb-2">Pipeline Complete</h3>
-                            <div id="done-stats" class="text-xs text-slate-400"></div>
-                            <div class="mt-3">
-                                <button onclick="resetPipeline()" class="text-xs text-slate-400 hover:text-white underline">Scan another repo</button>
+                        <div class="card p-6 text-center fade-in">
+                            <h3 class="text-lg font-bold text-gray-800 mb-2">Pipeline Complete</h3>
+                            <div id="done-stats" class="text-sm text-gray-500"></div>
+                            <div class="mt-4">
+                                <button onclick="resetPipeline()" class="text-sm text-gray-400 hover:text-gray-700 underline">Scan another repository</button>
                             </div>
                         </div>
                     </div>
@@ -217,138 +223,78 @@
     </main>
 
 <script>
-let poll = null;
-let startTime = null;
-let typesChart = null;
-let platformChart = null;
-
-// Track what we've already rendered to avoid any re-draws
+let poll = null, startTime = null, typesChart = null, platformChart = null;
 const rendered = { findings: false, fixes: 0, reviews: 0, logs: 0, phase: '', pr: false, done: false };
 
 function startScan() {
     const url = document.getElementById('repo-url').value.trim();
     if (!url) return;
-
     document.getElementById('btn-scan').disabled = true;
-    document.getElementById('btn-scan').innerHTML = '<span class="animate-pulse">Cloning...</span>';
+    document.getElementById('btn-scan').innerHTML = '<span class="animate-pulse">Scanning...</span>';
     document.getElementById('status-bar').classList.remove('hidden');
     document.getElementById('status-text').textContent = 'Cloning repository...';
     startTime = Date.now();
     setStep(1, 'active');
-
-    fetch('/api/scan', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({repo_url: url})
-    }).then(() => {
-        if (poll) clearInterval(poll);
-        poll = setInterval(pollStatus, 1000);
-    });
+    fetch('/api/scan', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({repo_url: url}) })
+        .then(() => { if (poll) clearInterval(poll); poll = setInterval(pollStatus, 1000); });
 }
 
 function startFix() {
     document.getElementById('btn-fix').disabled = true;
     document.getElementById('btn-fix').innerHTML = '<span class="animate-pulse">Generating fixes...</span>';
     setStep(4, 'active');
-    rendered.phase = '';  // allow phase updates again
-
-    fetch('/api/fix', {method: 'POST'}).then(() => {
-        if (!poll) poll = setInterval(pollStatus, 1000);
-    });
+    rendered.phase = '';
+    fetch('/api/fix', {method:'POST'}).then(() => { if (!poll) poll = setInterval(pollStatus, 1000); });
 }
 
 function resetPipeline() {
     if (poll) { clearInterval(poll); poll = null; }
-    fetch('/api/reset', {method: 'POST'}).then(() => location.reload());
+    fetch('/api/reset', {method:'POST'}).then(() => location.reload());
 }
 
 function pollStatus() {
     fetch('/api/status').then(r => r.json()).then(updateUI);
-    if (startTime) {
-        document.getElementById('status-time').textContent = ((Date.now() - startTime) / 1000).toFixed(1) + 's';
-    }
+    if (startTime) document.getElementById('status-time').textContent = ((Date.now()-startTime)/1000).toFixed(1)+'s';
 }
 
 function updateUI(d) {
-    // ── Logs: append only new entries ──
     if (d.logs.length > rendered.logs) {
-        const logEl = document.getElementById('log-entries');
+        const el = document.getElementById('log-entries');
         for (let i = rendered.logs; i < d.logs.length; i++) {
             const div = document.createElement('div');
-            div.innerHTML = `<span class="text-blue-400">[${d.logs[i].time}]</span> <span class="text-slate-400">${esc(d.logs[i].message)}</span>`;
-            logEl.appendChild(div);
+            div.innerHTML = `<span class="text-wf-red font-bold">[${d.logs[i].time}]</span> <span class="text-gray-600">${esc(d.logs[i].message)}</span>`;
+            el.appendChild(div);
         }
-        logEl.scrollTop = logEl.scrollHeight;
+        el.scrollTop = el.scrollHeight;
         rendered.logs = d.logs.length;
     }
-
-    // ── Phase: only act on change ──
     if (d.phase !== rendered.phase) {
         rendered.phase = d.phase;
-
-        const phaseText = {
-            cloning: 'Cloning repository...',
-            scanning: 'Scanning for violations...',
-            scan_done: 'Scan complete. Review findings.',
-            fixing: 'AI generating code fixes...',
-            reviewing: 'Security reviewing fixes...',
-            committing: 'Committing fixes & creating PR...',
-            done: 'Pipeline complete.',
-            error: 'Error: ' + (d.error || ''),
-        };
-        document.getElementById('status-text').textContent = phaseText[d.phase] || d.phase;
-
-        if (d.phase === 'cloning')    { setStep(1, 'active'); }
-        if (d.phase === 'scanning')   { setStep(1, 'done'); setStep(2, 'active'); }
-        if (d.phase === 'scan_done')  { setStep(2, 'done'); setStep(3, 'done'); }
-        if (d.phase === 'fixing')     { setStep(3, 'done'); setStep(4, 'active'); }
-        if (d.phase === 'reviewing')  { setStep(4, 'active'); }
-        if (d.phase === 'committing') { setStep(4, 'done'); setStep(5, 'active'); }
-        if (d.phase === 'done' || d.pr_url) { setStep(5, 'done'); }
-
-        if (d.phase === 'scan_done') {
-            document.getElementById('approve-section').classList.remove('hidden');
-            document.getElementById('spinner').classList.add('hidden');
-        }
-
-        if (d.phase === 'done' || d.phase === 'error') {
-            clearInterval(poll); poll = null;
-            document.getElementById('spinner').classList.add('hidden');
-        }
-
-        if (d.phase === 'done' && !d.pr_url && !rendered.done) {
-            rendered.done = true;
+        const t = { cloning:'Cloning repository...', scanning:'Scanning for violations...', scan_done:'Scan complete. Review findings below.', fixing:'AI generating code fixes...', reviewing:'Validating fixes...', committing:'Committing to feature branch & creating PR...', done:'Pipeline complete.', error:'Error: '+(d.error||'') };
+        document.getElementById('status-text').textContent = t[d.phase]||d.phase;
+        if (d.phase==='cloning') setStep(1,'active');
+        if (d.phase==='scanning') { setStep(1,'done'); setStep(2,'active'); }
+        if (d.phase==='scan_done') { setStep(2,'done'); setStep(3,'done'); }
+        if (d.phase==='fixing') { setStep(3,'done'); setStep(4,'active'); }
+        if (d.phase==='reviewing') setStep(4,'active');
+        if (d.phase==='committing') { setStep(4,'done'); setStep(5,'active'); }
+        if (d.phase==='done'||d.pr_url) setStep(5,'done');
+        if (d.phase==='scan_done') { document.getElementById('approve-section').classList.remove('hidden'); document.getElementById('spinner').classList.add('hidden'); document.getElementById('phase-input').classList.add('hidden'); document.getElementById('status-bar').classList.add('hidden'); }
+        if (d.phase==='done'||d.phase==='error') { clearInterval(poll); poll=null; document.getElementById('spinner').classList.add('hidden'); }
+        if (d.phase==='done'&&!d.pr_url&&!rendered.done) {
+            rendered.done=true;
             document.getElementById('done-section').classList.remove('hidden');
-            const gen = d.fixes.filter(f => f.has_fix).length;
-            const apr = d.reviews.filter(r => r.approved).length;
-            document.getElementById('done-stats').innerHTML =
-                `Fixes generated: ${gen}<br>Approved: ${apr}<br>` +
-                (apr === 0 ? 'No fixes were approved for commit.' : '');
+            const gen=d.fixes.filter(f=>f.has_fix).length, apr=d.reviews.filter(r=>r.approved).length;
+            document.getElementById('done-stats').innerHTML = `Fixes generated: ${gen}<br>Approved: ${apr}`+(apr===0?'<br>No fixes were approved for commit.':'');
         }
     }
-
-    // ── Findings: render exactly once ──
-    if (d.scan_result && !rendered.findings) {
-        rendered.findings = true;
-        showFindings(d);
-    }
-
-    // ── Fixes & Reviews: only on new items ──
-    if (d.fixes.length > rendered.fixes) {
-        rendered.fixes = d.fixes.length;
-        showFixes(d.fixes);
-    }
-    if (d.reviews.length > rendered.reviews) {
-        rendered.reviews = d.reviews.length;
-        showReviews(d.reviews);
-    }
-
-    // ── PR: once ──
+    if (d.scan_result && !rendered.findings) { rendered.findings=true; showFindings(d); document.getElementById('phase-input').classList.add('hidden'); }
+    if (d.fixes.length > rendered.fixes) { rendered.fixes=d.fixes.length; showFixes(d.fixes); }
+    if (d.reviews.length > rendered.reviews) { rendered.reviews=d.reviews.length; showReviews(d.reviews); }
     if (d.pr_url && !rendered.pr) {
-        rendered.pr = true;
+        rendered.pr=true;
         document.getElementById('pr-section').classList.remove('hidden');
         document.getElementById('pr-link').href = d.pr_url;
-        document.getElementById('pr-link').textContent = d.pr_url;
         document.getElementById('approve-section').classList.add('hidden');
     }
 }
@@ -357,44 +303,41 @@ function showFindings(d) {
     const s = d.scan_result;
     document.getElementById('phase-findings').classList.remove('hidden');
     document.getElementById('stat-total').textContent = s.total_violations;
-    document.getElementById('stat-critical').textContent = s.by_severity.CRITICAL || 0;
-    document.getElementById('stat-high').textContent = s.by_severity.HIGH || 0;
+    document.getElementById('stat-critical').textContent = s.by_severity.CRITICAL||0;
+    document.getElementById('stat-high').textContent = s.by_severity.HIGH||0;
     document.getElementById('stat-files').textContent = s.total_files;
-    document.getElementById('stat-time').textContent = s.duration.toFixed(2) + 's';
-    document.getElementById('stat-repo').textContent = d.repo_owner + '/' + d.repo_name;
-    document.getElementById('violations-count').textContent = `${s.violations.length} items`;
-
-    // Violations list
-    document.getElementById('violations-list').innerHTML = s.violations.slice(0, 50).map(v => `
-        <div class="card rounded-lg p-3 text-[11px] fade-in">
-            <div class="flex items-center justify-between mb-1">
-                <span class="font-semibold text-white truncate mr-2" title="${esc(v.relative_path)}">${esc(v.relative_path)}:${v.line_number}</span>
+    document.getElementById('stat-time').textContent = s.duration.toFixed(2)+'s';
+    document.getElementById('stat-repo').textContent = d.repo_owner+'/'+d.repo_name;
+    document.getElementById('violations-count').textContent = s.violations.length+' items';
+    document.getElementById('violations-list').innerHTML = s.violations.slice(0,60).map(v => `
+        <div class="card violation-row p-4 text-[13px] fade-in">
+            <div class="flex items-center justify-between mb-1.5">
+                <span class="font-bold text-gray-800 truncate mr-3" title="${esc(v.relative_path)}">${esc(v.relative_path)}:${v.line_number}</span>
                 <span class="badge ${v.severity==='CRITICAL'?'badge-critical':'badge-high'} flex-shrink-0">${v.severity}</span>
             </div>
-            <div class="flex items-center gap-2 mb-1">
-                <span class="text-blue-400 font-medium">${v.violation_type}</span>
-                <span class="text-slate-600">|</span>
-                <span class="text-slate-400">${v.platform}</span>
-                <span class="text-slate-600">|</span>
-                <span class="text-slate-400">${v.language}</span>
+            <div class="flex items-center gap-2 mb-1.5">
+                <span class="text-wf-red font-bold">${v.violation_type}</span>
+                <span class="text-gray-300">|</span>
+                <span class="text-gray-500">${v.platform}</span>
+                <span class="text-gray-300">|</span>
+                <span class="text-gray-500">${v.language}</span>
             </div>
-            <div class="text-slate-500 truncate font-mono" title="${esc(v.line_content)}">${esc(v.line_content)}</div>
+            <div class="text-gray-400 truncate font-mono text-[12px]" title="${esc(v.line_content)}">${esc(v.line_content)}</div>
         </div>
     `).join('');
-
     renderCharts(s);
 }
 
 function showFixes(fixes) {
     document.getElementById('fixes-section').classList.remove('hidden');
     document.getElementById('fixes-list').innerHTML = fixes.map(f => `
-        <div class="card rounded-lg p-3 text-[11px] fade-in">
-            <div class="flex items-center justify-between mb-1">
-                <span class="text-amber-400 font-semibold">${f.type}</span>
+        <div class="card p-4 text-[13px] fade-in">
+            <div class="flex items-center justify-between mb-1.5">
+                <span class="font-bold text-gray-800">${f.type}</span>
                 <span class="badge ${f.has_fix?'badge-approved':'badge-rejected'}">${f.has_fix?'FIXED':'PENDING'}</span>
             </div>
-            <div class="text-slate-500">${esc(f.file)}:${f.line}</div>
-            ${f.has_fix ? `<div class="text-slate-300 mt-1">${esc(f.explanation.substring(0,120))}</div>` : ''}
+            <div class="text-gray-400 text-[12px]">${esc(f.file)}:${f.line}</div>
+            ${f.has_fix?`<div class="text-gray-600 mt-1.5 leading-relaxed">${esc(f.explanation.substring(0,150))}</div>`:''}
         </div>
     `).join('');
 }
@@ -402,41 +345,33 @@ function showFixes(fixes) {
 function showReviews(reviews) {
     document.getElementById('reviews-section').classList.remove('hidden');
     document.getElementById('reviews-list').innerHTML = reviews.map(r => `
-        <div class="card rounded-lg p-2 text-[11px] flex items-center gap-2">
-            <span class="badge ${r.approved?'badge-approved':'badge-rejected'}">${r.approved?'OK':'FAIL'}</span>
-            <span class="text-white">${r.type}</span>
+        <div class="card p-3 text-[13px] flex items-center gap-3">
+            <span class="badge ${r.approved?'badge-approved':'badge-rejected'}">${r.approved?'PASS':'FAIL'}</span>
+            <span class="font-bold text-gray-700">${r.type}</span>
+            <span class="text-gray-400 text-[11px] truncate flex-1">${esc(r.notes||'')}</span>
         </div>
     `).join('');
 }
 
 function renderCharts(s) {
-    const colors = ['#3b82f6','#ef4444','#f59e0b','#8b5cf6','#10b981'];
-    const ctx1 = document.getElementById('chart-types').getContext('2d');
+    const c = ['#D71E28','#FFCD11','#1B7D3A','#4A90D9','#8B5CF6'];
     if (typesChart) typesChart.destroy();
-    typesChart = new Chart(ctx1, {
-        type: 'bar', data: {
-            labels: Object.keys(s.by_type), datasets: [{data: Object.values(s.by_type), backgroundColor: colors, borderRadius: 5, barThickness: 22}]
-        }, options: { indexAxis:'y', responsive:true, plugins:{legend:{display:false}},
-            scales:{ x:{grid:{color:'rgba(71,85,105,0.2)'},ticks:{color:'#94a3b8',font:{size:10}}}, y:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:9}}} } }
+    typesChart = new Chart(document.getElementById('chart-types').getContext('2d'), {
+        type:'bar', data:{ labels:Object.keys(s.by_type), datasets:[{data:Object.values(s.by_type), backgroundColor:c, borderRadius:5, barThickness:24}] },
+        options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{ x:{grid:{color:'#F3F3F3'},ticks:{color:'#888',font:{size:11}}}, y:{grid:{display:false},ticks:{color:'#444',font:{size:11,weight:'bold'}}} } }
     });
-
-    const ctx2 = document.getElementById('chart-platforms').getContext('2d');
     if (platformChart) platformChart.destroy();
-    platformChart = new Chart(ctx2, {
-        type: 'doughnut', data: {
-            labels: Object.keys(s.by_platform), datasets: [{data: Object.values(s.by_platform), backgroundColor: colors, borderWidth:0}]
-        }, options: { responsive:true, plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',padding:8,font:{size:10}}}} }
+    platformChart = new Chart(document.getElementById('chart-platforms').getContext('2d'), {
+        type:'doughnut', data:{ labels:Object.keys(s.by_platform), datasets:[{data:Object.values(s.by_platform), backgroundColor:c, borderWidth:0}] },
+        options:{ responsive:true, plugins:{legend:{position:'bottom',labels:{color:'#555',padding:10,font:{size:11}}}} }
     });
 }
 
-function setStep(n, state) {
-    const dot = document.getElementById('dot-' + n);
-    dot.className = 'step-dot ' + state;
-    if (state === 'done') dot.innerHTML = '&#10003;';
-    if (n > 1) {
-        const line = document.getElementById('line-' + (n-1));
-        if (state === 'done' || state === 'active') line.classList.add('done');
-    }
+function setStep(n, st) {
+    const dot = document.getElementById('dot-'+n);
+    dot.className = 'step-dot '+st;
+    if (st==='done') dot.innerHTML='&#10003;';
+    if (n>1) { const line=document.getElementById('line-'+(n-1)); if(st==='done'||st==='active') line.classList.add('done'); }
 }
 
 function esc(t) { const d=document.createElement('div'); d.textContent=t||''; return d.innerHTML; }
