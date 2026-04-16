@@ -1,0 +1,362 @@
+{
+  "scan_result": {
+    "total_violations": 20,
+    "total_files": 4,
+    "duration": 0.004172086715698242,
+    "by_type": {
+      "SELECT_STAR": 5,
+      "UNBATCHED_TXN": 4,
+      "LONG_RUNNING_TXN": 5,
+      "STRING_CONCAT_SQL": 6
+    },
+    "by_platform": {
+      "MSSQL": 14,
+      "ORACLE": 6
+    },
+    "by_severity": {
+      "HIGH": 14,
+      "CRITICAL": 6
+    },
+    "by_language": {
+      "JAVA": 19,
+      "SQL": 1
+    },
+    "violations": [
+      {
+        "file_path": "demo/mock_bank_repo/src/java/AccountRepository.java",
+        "relative_path": "AccountRepository.java",
+        "file_name": "AccountRepository.java",
+        "line_number": 18,
+        "line_content": "@Query(\"SELECT * FROM Accounts WHERE status = :status\")",
+        "violation_type": "SELECT_STAR",
+        "severity": "HIGH",
+        "platform": "MSSQL",
+        "language": "JAVA",
+        "description": "SELECT * query detected. Avoid selecting all columns; specify only required columns. This improves performance, reduces network overhead, and limits schema exposure.",
+        "confidence_score": 0.98
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/AccountRepository.java",
+        "relative_path": "AccountRepository.java",
+        "file_name": "AccountRepository.java",
+        "line_number": 24,
+        "line_content": "String query = \"SELECT * FROM Accounts WHERE account_number = '\" + accountNumber + \"'\";",
+        "violation_type": "SELECT_STAR",
+        "severity": "HIGH",
+        "platform": "MSSQL",
+        "language": "JAVA",
+        "description": "SELECT * query detected. Avoid selecting all columns; specify only required columns. This improves performance, reduces network overhead, and limits schema exposure.",
+        "confidence_score": 0.98
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/AccountRepository.java",
+        "relative_path": "AccountRepository.java",
+        "file_name": "AccountRepository.java",
+        "line_number": 22,
+        "line_content": "@Transactional",
+        "violation_type": "UNBATCHED_TXN",
+        "severity": "HIGH",
+        "platform": "MSSQL",
+        "language": "JAVA",
+        "description": "Unbatched transaction detected: Loop with individual database operations. This causes N+1 query problems. Use batch operations instead.",
+        "confidence_score": 0.85
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/AccountRepository.java",
+        "relative_path": "AccountRepository.java",
+        "file_name": "AccountRepository.java",
+        "line_number": 30,
+        "line_content": "return null;",
+        "violation_type": "UNBATCHED_TXN",
+        "severity": "HIGH",
+        "platform": "MSSQL",
+        "language": "JAVA",
+        "description": "Unbatched transaction detected: Loop with individual database operations. This causes N+1 query problems. Use batch operations instead.",
+        "confidence_score": 0.85
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/AccountRepository.java",
+        "relative_path": "AccountRepository.java",
+        "file_name": "AccountRepository.java",
+        "line_number": 22,
+        "line_content": "@Transactional",
+        "violation_type": "LONG_RUNNING_TXN",
+        "severity": "HIGH",
+        "platform": "MSSQL",
+        "language": "JAVA",
+        "description": "@Transactional without timeout. Add timeout parameter to prevent indefinite transaction locks.",
+        "confidence_score": 0.8
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/AccountRepository.java",
+        "relative_path": "AccountRepository.java",
+        "file_name": "AccountRepository.java",
+        "line_number": 26,
+        "line_content": "Statement stmt = conn.createStatement();",
+        "violation_type": "LONG_RUNNING_TXN",
+        "severity": "HIGH",
+        "platform": "MSSQL",
+        "language": "JAVA",
+        "description": "Statement created without setQueryTimeout. Call setQueryTimeout() to prevent long-running queries.",
+        "confidence_score": 0.8
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/AccountRepository.java",
+        "relative_path": "AccountRepository.java",
+        "file_name": "AccountRepository.java",
+        "line_number": 34,
+        "line_content": "@Transactional",
+        "violation_type": "LONG_RUNNING_TXN",
+        "severity": "HIGH",
+        "platform": "MSSQL",
+        "language": "JAVA",
+        "description": "@Transactional without timeout. Add timeout parameter to prevent indefinite transaction locks.",
+        "confidence_score": 0.8
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/AccountRepository.java",
+        "relative_path": "AccountRepository.java",
+        "file_name": "AccountRepository.java",
+        "line_number": 42,
+        "line_content": "@Transactional",
+        "violation_type": "LONG_RUNNING_TXN",
+        "severity": "HIGH",
+        "platform": "MSSQL",
+        "language": "JAVA",
+        "description": "@Transactional without timeout. Add timeout parameter to prevent indefinite transaction locks.",
+        "confidence_score": 0.8
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/AccountRepository.java",
+        "relative_path": "AccountRepository.java",
+        "file_name": "AccountRepository.java",
+        "line_number": 24,
+        "line_content": "String query = \"SELECT * FROM Accounts WHERE account_number = '\" + accountNumber + \"'\";",
+        "violation_type": "STRING_CONCAT_SQL",
+        "severity": "CRITICAL",
+        "platform": "MSSQL",
+        "language": "JAVA",
+        "description": "[AST] SQL injection: SQL string built via concatenation and passed to execute method. The variable flow crosses multiple lines, making this harder to spot. Use parameterized queries instead.",
+        "confidence_score": 0.92
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/AccountRepository.java",
+        "relative_path": "AccountRepository.java",
+        "file_name": "AccountRepository.java",
+        "line_number": 36,
+        "line_content": "for (Object account : accounts) {\n            entityManager.persist(account);\n        }",
+        "violation_type": "UNBATCHED_TXN",
+        "severity": "HIGH",
+        "platform": "MSSQL",
+        "language": "JAVA",
+        "description": "[AST] N+1 query: entityManager.persist called inside a loop. Batch operations with addBatch()/executeBatch() or collect and flush once outside the loop.",
+        "confidence_score": 0.9
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/AccountRepository.java",
+        "relative_path": "AccountRepository.java",
+        "file_name": "AccountRepository.java",
+        "line_number": 26,
+        "line_content": "Statement stmt = conn.createStatement();",
+        "violation_type": "STRING_CONCAT_SQL",
+        "severity": "CRITICAL",
+        "platform": "MSSQL",
+        "language": "JAVA",
+        "description": "[AST] Using Statement instead of PreparedStatement. Statement does not support parameterized queries, making SQL injection possible.",
+        "confidence_score": 0.88
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/LoanServicingMapper.xml",
+        "relative_path": "LoanServicingMapper.xml",
+        "file_name": "LoanServicingMapper.xml",
+        "line_number": 7,
+        "line_content": "SELECT * FROM LoanServices WHERE loan_id = ${loanId}",
+        "violation_type": "SELECT_STAR",
+        "severity": "HIGH",
+        "platform": "MSSQL",
+        "language": "SQL",
+        "description": "SELECT * query detected. Avoid selecting all columns; specify only required columns. This improves performance, reduces network overhead, and limits schema exposure.",
+        "confidence_score": 0.98
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/LoanServicingMapper.xml",
+        "relative_path": "LoanServicingMapper.xml",
+        "file_name": "LoanServicingMapper.xml",
+        "line_number": 7,
+        "line_content": "SELECT * FROM LoanServices WHERE loan_id = ${loanId}",
+        "violation_type": "STRING_CONCAT_SQL",
+        "severity": "CRITICAL",
+        "platform": "MSSQL",
+        "language": "JAVA",
+        "description": "SQL Injection Risk: Query constructed via string concatenation or interpolation. Use parameterized queries or prepared statements.",
+        "confidence_score": 0.95
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/LoanServicingMapper.xml",
+        "relative_path": "LoanServicingMapper.xml",
+        "file_name": "LoanServicingMapper.xml",
+        "line_number": 18,
+        "line_content": "VALUES (#{serviceId}, ${loanId}, #{servicerName}, #{status})",
+        "violation_type": "STRING_CONCAT_SQL",
+        "severity": "CRITICAL",
+        "platform": "MSSQL",
+        "language": "JAVA",
+        "description": "SQL Injection Risk: Query constructed via string concatenation or interpolation. Use parameterized queries or prepared statements.",
+        "confidence_score": 0.95
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/TransactionProcessor.java",
+        "relative_path": "TransactionProcessor.java",
+        "file_name": "TransactionProcessor.java",
+        "line_number": 14,
+        "line_content": "String query = \"SELECT * FROM Transactions WHERE account_id = ?\";",
+        "violation_type": "SELECT_STAR",
+        "severity": "HIGH",
+        "platform": "ORACLE",
+        "language": "JAVA",
+        "description": "SELECT * query detected. Avoid selecting all columns; specify only required columns. This improves performance, reduces network overhead, and limits schema exposure.",
+        "confidence_score": 0.98
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/TransactionProcessor.java",
+        "relative_path": "TransactionProcessor.java",
+        "file_name": "TransactionProcessor.java",
+        "line_number": 24,
+        "line_content": "String query = \"SELECT * FROM Transactions WHERE transaction_id = '\" + txnId + \"'\";",
+        "violation_type": "SELECT_STAR",
+        "severity": "HIGH",
+        "platform": "ORACLE",
+        "language": "JAVA",
+        "description": "SELECT * query detected. Avoid selecting all columns; specify only required columns. This improves performance, reduces network overhead, and limits schema exposure.",
+        "confidence_score": 0.98
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/TransactionProcessor.java",
+        "relative_path": "TransactionProcessor.java",
+        "file_name": "TransactionProcessor.java",
+        "line_number": 25,
+        "line_content": "Statement stmt = conn.createStatement();",
+        "violation_type": "LONG_RUNNING_TXN",
+        "severity": "HIGH",
+        "platform": "ORACLE",
+        "language": "JAVA",
+        "description": "Statement created without setQueryTimeout. Call setQueryTimeout() to prevent long-running queries.",
+        "confidence_score": 0.8
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/TransactionProcessor.java",
+        "relative_path": "TransactionProcessor.java",
+        "file_name": "TransactionProcessor.java",
+        "line_number": 24,
+        "line_content": "String query = \"SELECT * FROM Transactions WHERE transaction_id = '\" + txnId + \"'\";",
+        "violation_type": "STRING_CONCAT_SQL",
+        "severity": "CRITICAL",
+        "platform": "ORACLE",
+        "language": "JAVA",
+        "description": "[AST] SQL injection: SQL string built via concatenation and passed to execute method. The variable flow crosses multiple lines, making this harder to spot. Use parameterized queries instead.",
+        "confidence_score": 0.92
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/TransactionProcessor.java",
+        "relative_path": "TransactionProcessor.java",
+        "file_name": "TransactionProcessor.java",
+        "line_number": 34,
+        "line_content": "for (String txnId : txnIds) {\n                PreparedStatement pstmt = conn.prepareStatement(\n                    \"UPDA",
+        "violation_type": "UNBATCHED_TXN",
+        "severity": "HIGH",
+        "platform": "ORACLE",
+        "language": "JAVA",
+        "description": "[AST] N+1 query: .executeUpdate called inside a loop. Batch operations with addBatch()/executeBatch() or collect and flush once outside the loop.",
+        "confidence_score": 0.9
+      },
+      {
+        "file_path": "demo/mock_bank_repo/src/java/TransactionProcessor.java",
+        "relative_path": "TransactionProcessor.java",
+        "file_name": "TransactionProcessor.java",
+        "line_number": 25,
+        "line_content": "Statement stmt = conn.createStatement();",
+        "violation_type": "STRING_CONCAT_SQL",
+        "severity": "CRITICAL",
+        "platform": "ORACLE",
+        "language": "JAVA",
+        "description": "[AST] Using Statement instead of PreparedStatement. Statement does not support parameterized queries, making SQL injection possible.",
+        "confidence_score": 0.88
+      }
+    ]
+  },
+  "fixes": [
+    {
+      "type": "SELECT_STAR",
+      "file": "AccountRepository.java",
+      "relative_path": "AccountRepository.java",
+      "line": 18,
+      "original": "@Query(\"SELECT * FROM Accounts WHERE status = :status\")",
+      "fixed": "@Query(\"SELECT account_id, account_number, customer_id, balance, status FROM Accounts WHERE status = :status\")",
+      "explanation": "Replaced SELECT * with explicit columns (account_id, account_number, customer_id, balance, status) from Accounts. This reduces data exposure, improves query performance, and ensures only needed columns are transferred.",
+      "confidence": 0.85,
+      "has_fix": true
+    },
+    {
+      "type": "UNBATCHED_TXN",
+      "file": "AccountRepository.java",
+      "relative_path": "AccountRepository.java",
+      "line": 22,
+      "original": "@Transactional",
+      "fixed": "@Transactional  // FIX: Batch operations - flush/commit outside the loop",
+      "explanation": "Use batch execution: collect operations in loop, then call entityManager.flush() or executeBatch() once outside the loop.",
+      "confidence": 0.8,
+      "has_fix": true
+    },
+    {
+      "type": "LONG_RUNNING_TXN",
+      "file": "AccountRepository.java",
+      "relative_path": "AccountRepository.java",
+      "line": 22,
+      "original": "@Transactional",
+      "fixed": "@Transactional(timeout = 30)",
+      "explanation": "Added timeout = 30 seconds to @Transactional annotation to prevent indefinite transaction locks.",
+      "confidence": 0.82,
+      "has_fix": true
+    },
+    {
+      "type": "STRING_CONCAT_SQL",
+      "file": "AccountRepository.java",
+      "relative_path": "AccountRepository.java",
+      "line": 24,
+      "original": "String query = \"SELECT * FROM Accounts WHERE account_number = '\" + accountNumber + \"'\";",
+      "fixed": "String query = \"SELECT * FROM Accounts WHERE account_number = '\" + accountNumber + \"'\";  // FIX: Use PreparedStatement with ? placeholders",
+      "explanation": "Replace string concatenation with PreparedStatement. Use conn.prepareStatement(sql) with ? placeholders and setString()/setInt() for parameters.",
+      "confidence": 0.9,
+      "has_fix": true
+    }
+  ],
+  "reviews": [
+    {
+      "type": "SELECT_STAR",
+      "file": "AccountRepository.java",
+      "approved": true,
+      "notes": "Template-based fix (pre-validated)"
+    },
+    {
+      "type": "UNBATCHED_TXN",
+      "file": "AccountRepository.java",
+      "approved": true,
+      "notes": "Template-based fix (pre-validated)"
+    },
+    {
+      "type": "LONG_RUNNING_TXN",
+      "file": "AccountRepository.java",
+      "approved": true,
+      "notes": "Template-based fix (pre-validated)"
+    },
+    {
+      "type": "STRING_CONCAT_SQL",
+      "file": "AccountRepository.java",
+      "approved": true,
+      "notes": "Template-based fix (pre-validated)"
+    }
+  ],
+  "repo_owner": "shashithakurcsu",
+  "repo_name": "db-hygiene-scanner",
+  "pr_url": "https://github.com/shashithakurcsu/db-hygiene-scanner/pull/1"
+}

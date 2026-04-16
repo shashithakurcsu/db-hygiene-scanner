@@ -62,3 +62,4 @@ demo-output/
 
 # Ruff
 .ruff_cache/
+.vercel

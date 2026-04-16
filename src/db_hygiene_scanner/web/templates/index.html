@@ -226,6 +226,11 @@
 let poll = null, startTime = null, typesChart = null, platformChart = null;
 const rendered = { findings: false, fixes: 0, reviews: 0, logs: 0, phase: '', pr: false, done: false };
 
+// Auto-detect Vercel (serverless) vs local
+const isVercel = window.location.hostname.includes('vercel.app');
+const API = isVercel ? { scan: '/api/demo/scan', fix: '/api/demo/fix', status: '/api/demo/status', reset: '/api/reset' }
+                     : { scan: '/api/scan', fix: '/api/fix', status: '/api/status', reset: '/api/reset' };
+
 function startScan() {
     const url = document.getElementById('repo-url').value.trim();
     if (!url) return;
@@ -235,7 +240,7 @@ function startScan() {
     document.getElementById('status-text').textContent = 'Cloning repository...';
     startTime = Date.now();
     setStep(1, 'active');
-    fetch('/api/scan', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({repo_url: url}) })
+    fetch(API.scan, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({repo_url: url}) })
         .then(() => { if (poll) clearInterval(poll); poll = setInterval(pollStatus, 1000); });
 }
 
@@ -244,16 +249,16 @@ function startFix() {
     document.getElementById('btn-fix').innerHTML = '<span class="animate-pulse">Generating fixes...</span>';
     setStep(4, 'active');
     rendered.phase = '';
-    fetch('/api/fix', {method:'POST'}).then(() => { if (!poll) poll = setInterval(pollStatus, 1000); });
+    fetch(API.fix, {method:'POST'}).then(() => { if (!poll) poll = setInterval(pollStatus, 1000); });
 }
 
 function resetPipeline() {
     if (poll) { clearInterval(poll); poll = null; }
-    fetch('/api/reset', {method:'POST'}).then(() => location.reload());
+    fetch(API.reset, {method:'POST'}).then(() => location.reload());
 }
 
 function pollStatus() {
-    fetch('/api/status').then(r => r.json()).then(updateUI);
+    fetch(API.status).then(r => r.json()).then(updateUI);
     if (startTime) document.getElementById('status-time').textContent = ((Date.now()-startTime)/1000).toFixed(1)+'s';
 }
 

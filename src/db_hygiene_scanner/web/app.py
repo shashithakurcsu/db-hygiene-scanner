@@ -513,7 +513,96 @@ def reset():
     if state["clone_path"] and Path(state["clone_path"]).exists():
         shutil.rmtree(state["clone_path"], ignore_errors=True)
     _reset()
+    demo_state["step"] = 0
     return jsonify({"status": "reset"})
+
+
+# ── Demo Mode (for Vercel / serverless) ──
+# Uses pre-baked data with simulated step progression
+
+demo_state = {"step": 0}
+
+def _load_demo_data():
+    demo_file = Path(__file__).parent / "demo_data.json"
+    if demo_file.exists():
+        return json.loads(demo_file.read_text())
+    return None
+
+
+@app.route("/api/demo/scan", methods=["POST"])
+def demo_scan():
+    """Demo scan - returns pre-baked scan results instantly."""
+    demo_state["step"] = 1
+    return jsonify({"status": "started"})
+
+
+@app.route("/api/demo/fix", methods=["POST"])
+def demo_fix():
+    """Demo fix - returns pre-baked fix results."""
+    demo_state["step"] = 2
+    return jsonify({"status": "started"})
+
+
+@app.route("/api/demo/status")
+def demo_status():
+    """Demo status with simulated progression."""
+    data = _load_demo_data()
+    if not data:
+        return jsonify({"phase": "error", "error": "Demo data not found"})
+
+    step = demo_state.get("step", 0)
+    now = datetime.now().strftime("%H:%M:%S")
+
+    if step == 0:
+        return jsonify({
+            "phase": "idle", "repo_url": "", "repo_owner": "", "repo_name": "",
+            "scan_result": None, "fixes": [], "reviews": [], "pr_url": "",
+            "logs": [], "error": None,
+        })
+    elif step == 1:
+        return jsonify({
+            "phase": "scan_done",
+            "repo_url": "https://github.com/shashithakurcsu/db-hygiene-scanner/tree/main/demo/mock_bank_repo/src/java",
+            "repo_owner": data["repo_owner"],
+            "repo_name": data["repo_name"],
+            "scan_result": data["scan_result"],
+            "fixes": [], "reviews": [],
+            "pr_url": "",
+            "logs": [
+                {"time": now, "message": f"Cloning {data['repo_owner']}/{data['repo_name']}..."},
+                {"time": now, "message": "Repository cloned to temporary directory"},
+                {"time": now, "message": "Scanning subfolder: demo/mock_bank_repo/src/java"},
+                {"time": now, "message": f"Scan complete: {data['scan_result']['total_violations']} violations in {data['scan_result']['total_files']} files"},
+            ],
+            "error": None,
+        })
+    elif step >= 2:
+        return jsonify({
+            "phase": "done",
+            "repo_url": "https://github.com/shashithakurcsu/db-hygiene-scanner/tree/main/demo/mock_bank_repo/src/java",
+            "repo_owner": data["repo_owner"],
+            "repo_name": data["repo_name"],
+            "scan_result": data["scan_result"],
+            "fixes": data["fixes"],
+            "reviews": data["reviews"],
+            "pr_url": data["pr_url"],
+            "logs": [
+                {"time": now, "message": f"Cloning {data['repo_owner']}/{data['repo_name']}..."},
+                {"time": now, "message": "Repository cloned"},
+                {"time": now, "message": f"Scan complete: {data['scan_result']['total_violations']} violations in {data['scan_result']['total_files']} files"},
+                {"time": now, "message": f"Generating fixes for {len(data['fixes'])} violations..."},
+                {"time": now, "message": f"Fix generation complete: {len([f for f in data['fixes'] if f['has_fix']])} fixes generated"},
+                {"time": now, "message": f"Validation complete: {len([r for r in data['reviews'] if r['approved']])} approved"},
+                {"time": now, "message": "Committed fixes to feature branch"},
+                {"time": now, "message": f"Pull Request created: {data['pr_url']}"},
+                {"time": now, "message": "Pipeline complete!"},
+            ],
+            "error": None,
+        })
+
+
+# Detect if running on Vercel (serverless)
+IS_VERCEL = os.environ.get("VERCEL", "") == "1"
 
 
 def run_server(port=5001, debug=False):
