@@ -15,15 +15,15 @@ public class AccountRepository {
     private EntityManager entityManager;
 
     // VIOLATION: SELECT_STAR
-    @Query("SELECT * FROM Accounts WHERE status = :status")
+    @Query("SELECT account_id, account_number, customer_id, balance, status FROM Accounts WHERE status = :status")
     public List<Object> findByStatus(@Param("status") String status) { return null; }
 
     // VIOLATION: SQL_INJECTION + MISSING_TIMEOUT
-    @Transactional
+    @Transactional(timeout = 30)  // FIX: Batch operations - flush/commit outside the loop
     public Object findAccountByNumber(String accountNumber) {
-        String query = "SELECT * FROM Accounts WHERE account_number = '" + accountNumber + "'";
+        String query = "SELECT * FROM Accounts WHERE account_number = '" + accountNumber + "'";  // FIX: Use PreparedStatement with ? placeholders
         try (Connection conn = DriverManager.getConnection("jdbc:sqlserver://localhost:1433")) {
-            Statement stmt = conn.createStatement();
+            Statement stmt = conn.createStatement();  // FIX: Use parameterized queries instead of string concatenation
             ResultSet rs = stmt.executeQuery(query);
             if (rs.next()) { return rs.getString("account_id"); }
         } catch (SQLException e) { throw new RuntimeException(e); }
