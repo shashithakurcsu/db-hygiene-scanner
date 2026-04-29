@@ -4,7 +4,14 @@
 <mapper namespace="LoanServicingMapper">
     <!-- VIOLATION: SELECT_STAR + SQL_INJECTION (${} instead of #{}) -->
     <select id="selectByLoanId" parameterType="String" resultType="Object">
-        SELECT * FROM LoanServices WHERE loan_id = ${loanId}
+        <mapper namespace="LoanServicingMapper">
+    <!-- FIXED: Changed ${loanId} to #{loanId} to use PreparedStatement parameterization instead of string interpolation -->
+    <select id="selectByLoanId" parameterType="String" resultType="Object">
+        SELECT * FROM LoanServices WHERE loan_id = #{loanId}
+    </select>
+
+    <!-- Correct example -->
+</mapper>
     </select>
 
     <!-- Correct example -->
@@ -15,6 +22,11 @@
     <!-- VIOLATION: SQL_INJECTION (${} instead of #{}) -->
     <insert id="insertRecord" parameterType="Object">
         INSERT INTO LoanServices (service_id, loan_id, servicer_name, status)
-        VALUES (#{serviceId}, ${loanId}, #{servicerName}, #{status})
+            <!-- FIXED: Changed ${loanId} to #{loanId} to use parameterized binding instead of string interpolation -->
+    <insert id="insertRecord" parameterType="Object">
+        INSERT INTO LoanServices (service_id, loan_id, servicer_name, status)
+        VALUES (#{serviceId}, #{loanId}, #{servicerName}, #{status})
+    </insert>
+</mapper>
     </insert>
 </mapper>
