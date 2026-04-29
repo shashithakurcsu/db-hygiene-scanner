@@ -21,8 +21,28 @@ public class TransactionProcessor {
     // VIOLATION: SQL_INJECTION + MISSING_TIMEOUT
     public Object getTransactionById(String txnId) {
         try (Connection conn = DriverManager.getConnection(oracleConnection)) {
-            String query = "SELECT * FROM Transactions WHERE transaction_id = '" + txnId + "'";
-            Statement stmt = conn.createStatement();
+            // VIOLATION: SQL_INJECTION + MISSING_TIMEOUT
+public Object getTransactionById(String txnId) {
+    try (Connection conn = DriverManager.getConnection(oracleConnection)) {
+        // CHANGED: Replaced string concatenation with a bind parameter placeholder (?) to prevent SQL injection
+        String query = "SELECT * FROM Transactions WHERE transaction_id = ?";
+        // CHANGED: Replaced Statement with PreparedStatement to enforce parameterized query execution
+        PreparedStatement stmt = conn.prepareStatement(query);
+        // CHANGED: Bind the txnId value as a parameter instead of concatenating it into the query string
+        stmt.setString(1, txnId);
+        ResultSet rs = stmt.executeQuery();
+    } catch (SQLException e) { throw new RuntimeException(e); }
+}
+            public Object getTransactionById(String txnId) {
+        try (Connection conn = DriverManager.getConnection(oracleConnection);
+             // Use PreparedStatement instead of Statement to eliminate SQL injection via string concatenation
+             PreparedStatement stmt = conn.prepareStatement("SELECT * FROM Transactions WHERE transaction_id = ?")) {
+            // Bind the parameter safely; Oracle will treat it as a literal value, not executable SQL
+            stmt.setString(1, txnId);
+            ResultSet rs = stmt.executeQuery();
+        } catch (SQLException e) { throw new RuntimeException(e); }
+        return null;
+    }
             ResultSet rs = stmt.executeQuery(query);
         } catch (SQLException e) { throw new RuntimeException(e); }
         return null;
